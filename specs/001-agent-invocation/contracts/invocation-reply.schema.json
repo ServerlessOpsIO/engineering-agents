@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://serverlessops.io/contracts/engineering-agents/invocation-reply.schema.json",
+  "title": "InvocationReply",
+  "description": "Body the agent returns. HTTP 200 for answer and input_rejection, HTTP 500 for error.",
+  "type": "object",
+  "required": ["kind", "text", "requestId"],
+  "properties": {
+    "kind": {
+      "enum": ["answer", "input_rejection", "error"]
+    },
+    "text": {
+      "type": "string",
+      "description": "The model's reply for answer. A fixed message for input_rejection and error."
+    },
+    "requestId": {
+      "type": "string",
+      "description": "Request identifier assigned by the runtime. Matches the request's log record."
+    }
+  },
+  "additionalProperties": false
+}

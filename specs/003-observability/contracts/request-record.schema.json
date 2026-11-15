@@ -1,0 +1,62 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://serverlessops.io/contracts/engineering-agents/request-record.schema.json",
+  "title": "RequestRecord",
+  "description": "The JSON log line the agent writes once for each request that reaches its handler. It never contains prompt or reply text.",
+  "type": "object",
+  "required": ["requestId", "sessionId", "promptChars", "kind", "durationMs"],
+  "properties": {
+    "requestId": {
+      "type": ["string", "null"],
+      "description": "Correlation identifier. Also returned to the caller in the reply."
+    },
+    "sessionId": {
+      "type": ["string", "null"],
+      "description": "The caller's runtimeSessionId."
+    },
+    "promptChars": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Length of the trimmed prompt. 0 for a missing or non-text prompt."
+    },
+    "kind": {
+      "enum": ["answer", "input_rejection", "error"]
+    },
+    "durationMs": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Time spent inside the handler, in milliseconds."
+    },
+    "modelId": {
+      "type": "string",
+      "description": "Bedrock inference profile ID. Present when the request passed the input checks."
+    },
+    "inputTokens": {
+      "type": ["integer", "null"],
+      "minimum": 0
+    },
+    "outputTokens": {
+      "type": ["integer", "null"],
+      "minimum": 0
+    },
+    "errorType": {
+      "type": "string",
+      "description": "Class name of the exception. Present for error only."
+    }
+  },
+  "additionalProperties": true,
+  "allOf": [
+    {
+      "if": { "properties": { "kind": { "const": "input_rejection" } } },
+      "then": { "not": { "anyOf": [{ "required": ["modelId"] }, { "required": ["errorType"] }] } }
+    },
+    {
+      "if": { "properties": { "kind": { "const": "answer" } } },
+      "then": { "required": ["modelId", "inputTokens", "outputTokens"] }
+    },
+    {
+      "if": { "properties": { "kind": { "const": "error" } } },
+      "then": { "required": ["modelId", "errorType"] }
+    }
+  ]
+}

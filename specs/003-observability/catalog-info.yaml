@@ -1,0 +1,32 @@
+apiVersion: backstage.io/v1alpha1
+kind: Resource
+metadata:
+  name: engineering-agents-spec-003
+  title: "003 - Observability"
+  description: "As an operator I'd like to find out what happened to one request and see how the agent is being used"
+  annotations:
+    github.com/project-slug: ServerlessOpsIO/engineering-agents
+    serverlessops.io/spec-dir: specs/003-observability
+    serverlessops.io/spec-number: "003"
+    serverlessops.io/spec-issue: "3"
+    serverlessops.io/spec-type: "feature"
+    backstage.io/source-location: url:https://github.com/ServerlessOpsIO/engineering-agents/tree/main/specs/003-observability/
+    backstage.io/techdocs-ref: dir:.
+  tags:
+    - speckit
+  links:
+    - url: https://github.com/ServerlessOpsIO/engineering-agents/blob/main/specs/003-observability/spec.md
+      title: Specification
+      icon: docs
+    - url: https://github.com/ServerlessOpsIO/engineering-agents/blob/main/specs/003-observability/plan.md
+      title: Implementation plan
+      icon: docs
+    - url: https://github.com/ServerlessOpsIO/engineering-agents/issues/3
+      title: Spec tracking issue
+      icon: github
+spec:
+  type: doc-spec
+  owner: group:00gjdgxs1ur6lsu
+  system: slack-ai-agent
+  dependsOn:
+    - component:default/engineering-agents
