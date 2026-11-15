@@ -1,0 +1,18 @@
+[[source]]
+url = "https://pypi.org/simple"
+verify_ssl = true
+name = "pypi"
+
+# Runtime dependencies. These are installed in the image.
+[packages]
+strands-agents = "==1.65.0"
+bedrock-agentcore = "==1.26.0"
+aws-opentelemetry-distro = "==0.22.0"
+
+# Tools for tests and scripts. These are not installed in the image.
+[dev-packages]
+pytest = "==9.2.0"
+boto3 = "*"
+
+[requires]
+python_version = "3.14"

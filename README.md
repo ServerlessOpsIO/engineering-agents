@@ -28,7 +28,8 @@ Then make the agent your own:
 ## Run the tests
 
 ```bash
-uv run --python 3.14 --with-requirements requirements-dev.txt pytest
+pipenv install --dev
+pipenv run pytest
 sam validate --lint
 ```
 

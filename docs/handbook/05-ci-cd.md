@@ -25,11 +25,11 @@ job.
 Runs on an arm64 runner (`ubuntu-24.04-arm`), because AgentCore Runtime runs arm64 images and
 this builds one without emulation.
 
-1. Installs Python 3.14 and `requirements-dev.txt`, then runs `pytest`. A failing test stops
-   the image build and the deployment.
-2. `kciter/aws-ecr-action@v4` builds `src/agent/Dockerfile` with `src/agent/` as the context,
-   creates the ECR repository `<owner>/<repository>` in the CI/CD account if needed, pushes
-   the tags below, and applies `.github/workflows/ecr-policy.json`.
+1. Installs Python 3.14 and the packages in `Pipfile.lock` with `pipenv`, then runs `pytest`.
+   A failing test stops the image build and the deployment.
+2. `kciter/aws-ecr-action@v4` builds `src/agent/Dockerfile` with the repository root as the
+   context, creates the ECR repository `<owner>/<repository>` in the CI/CD account if needed,
+   pushes the tags below, and applies `.github/workflows/ecr-policy.json`.
 
 | Workflow | Image tags pushed |
 | --- | --- |

@@ -18,12 +18,14 @@ both for agents that run long tasks.
 ## Repository layout
 
 ```text
-src/agent/            # Everything that ships in the image; the Docker build context
+src/agent/            # The code that ships in the image
 ├── main.py           # Entry point: input checks, logging, errors
 ├── prompt.py         # Loads the system prompt
 ├── system_prompt.md  # The agent's instructions
-├── requirements.txt  # Runtime dependencies, pinned
 └── Dockerfile        # arm64 image, non-root user, port 8080
+Pipfile               # Dependencies: runtime in [packages], test tools in [dev-packages]
+Pipfile.lock          # Exact versions that CI and the image install
+.dockerignore         # Limits the Docker build context to the Pipfile and src/agent/
 tests/unit/           # Unit tests; never packaged
 scripts/invoke.py     # Ask a deployed agent one question
 template.yaml         # Runtime, execution role, memory

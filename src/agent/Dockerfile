@@ -8,10 +8,15 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /app
 
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+# The build context is the repository root, where the Pipfile lives. Only the
+# runtime packages in Pipfile.lock are installed, into the system Python.
+COPY Pipfile Pipfile.lock ./
+RUN pip install --no-cache-dir pipenv \
+    && pipenv install --system --deploy \
+    && pip uninstall --yes pipenv \
+    && rm -rf /root/.cache Pipfile Pipfile.lock
 
-COPY . .
+COPY src/agent/ .
 
 RUN useradd --create-home --uid 1000 agent
 USER agent

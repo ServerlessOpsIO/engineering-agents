@@ -1,0 +1,8 @@
+# The Docker build context is the repository root. Only the files the image
+# needs are sent to the build.
+*
+!Pipfile
+!Pipfile.lock
+!src/agent
+src/agent/Dockerfile
+**/__pycache__
