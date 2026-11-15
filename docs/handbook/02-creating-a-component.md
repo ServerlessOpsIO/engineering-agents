@@ -8,7 +8,7 @@ template, whose source is the `backstage-aws-agentcore-template` repository.
 | Page | Fields | Where the values go |
 | --- | --- | --- |
 | Component Info | Name, description, owner, domain, system, environment, account | `catalog-info.yaml`, `cfn-parameters.json`, `cfn-tags.json`, `samconfig.toml`, the repository's custom properties and the `DEPLOYMENT_ACCOUNT_ID` secret |
-| Agent configuration | Instructions, model, Python version, conversation memory | `src/agent/system_prompt.md`, the `ModelId` default in `template.yaml`, the Dockerfile and workflows, and the memory resources in `template.yaml` |
+| Agent configuration | Instructions, model, Python version, conversation memory | `src/agent/system_prompt.md`, `ModelId` in `cfn-parameters.json`, the Dockerfile and workflows, and the memory resources in `template.yaml` |
 | Spec Kit | Whether to initialize Spec Kit, and for which coding agent | The Spec Kit files in the repository |
 | Copilot Cloud Agent | Whether to launch a Copilot task, and its prompt | A Copilot task on the new repository |
 

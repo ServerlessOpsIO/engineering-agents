@@ -17,7 +17,7 @@ Needs AWS credentials that can invoke the model.
 
 ```bash
 cd src/agent
-MODEL_ID=global.anthropic.claude-haiku-5-5 pipenv run python main.py
+MODEL_ID=us.anthropic.claude-haiku-5-5 pipenv run python main.py
 ```
 
 In another terminal:
@@ -46,9 +46,8 @@ prompt must keep.
 
 ## Change the model
 
-Set `ModelId` in `cfn-parameters.json`, or change its default in `template.yaml`. Use an
-inference profile ID of the form `<scope>.<provider>.<model>`. The execution role's permission
-follows the parameter. Confirm the deployment account has access to the model first.
+Set `ModelId` in `cfn-parameters.json`. Use an inference profile ID of the form
+`<scope>.<provider>.<model>`. The execution role's permission follows the parameter. Confirm the deployment account has access to the model first.
 
 ## Give the agent a tool
 

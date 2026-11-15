@@ -4,8 +4,8 @@
 
 - A Python 3.14 program in `src/agent/` using the Strands Agents SDK.
 - A system prompt in `src/agent/system_prompt.md`, set from the Backstage form.
-- A model on Amazon Bedrock, chosen by the `ModelId` deployment parameter
-  (`global.anthropic.claude-haiku-5-5` by default).
+- A model on Amazon Bedrock, chosen by the `ModelId` deployment parameter. It is set to
+  `us.anthropic.claude-haiku-5-5`, the US inference profile, in `cfn-parameters.json`.
 - Input checks before the model is called: empty prompts and prompts over `MaxPromptChars`
   (4,000 characters by default) are rejected without spending tokens.
 - A generic error reply. Failure details go to the log and never to the caller.

@@ -31,23 +31,31 @@ was set on this repository when it was created.
 | `ContainerOrg` | Repository owner slug | First part of the image repository name |
 | `ContainerImage` | Repository name slug | Second part of the image repository name |
 | `ContainerTag` | Commit SHA | Image tag to run |
+| `ModelId` | `us.anthropic.claude-haiku-5-5` | Bedrock inference profile the agent uses |
 
 These parameters have defaults in `template.yaml`. Add them to `cfn-parameters.json` to
 override one:
 
 | Parameter | Default | Purpose |
 | --- | --- | --- |
-| `ModelId` | `global.anthropic.claude-haiku-5-5` | Bedrock inference profile the agent uses |
 | `MaxPromptChars` | `4000` | Longest prompt accepted |
 | `LogLevel` | `INFO` | Agent log level |
 | `MemoryEventExpiryDays` | `7` | Days a conversation's messages are kept |
 
-`ModelId` must have the form `<scope>.<provider>.<model>`, such as
-`global.anthropic.claude-haiku-5-5`. The execution role's model permission is built from it.
+`ModelId` has no default in `template.yaml`, so it must be set in `cfn-parameters.json`. It
+must have the form `<scope>.<provider>.<model>`, such as `us.anthropic.claude-haiku-5-5`. The
+execution role's model permission is built from it.
+
+The `us.` profile routes requests to `us-east-1`, `us-east-2` and `us-west-2`. The
+organization's region restrictions must allow Bedrock model invocation in all three, or
+requests fail with `AccessDeniedException`.
 
 ## Environment variables
 
-The runtime passes these to the agent: `MODEL_ID`, `MAX_PROMPT_CHARS`, `LOG_LEVEL` and `MEMORY_ID`. Add more under `EnvironmentVariables` in `template.yaml`.
+The runtime passes these to the agent: `MODEL_ID`, `MAX_PROMPT_CHARS`, `LOG_LEVEL` and
+`MEMORY_ID`. Add more under `EnvironmentVariables` in `template.yaml`.
+
+`MODEL_ID` is required. The agent has no fallback model and does not start without it.
 
 Do not put secrets in environment variables or parameters. Store them in AWS Secrets Manager
 and grant the execution role permission to read them.

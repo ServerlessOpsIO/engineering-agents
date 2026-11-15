@@ -123,3 +123,20 @@ def test_the_request_record_holds_no_prompt_or_reply_text(agent, context, record
     assert "a very private question" not in logged
     assert "The reply." not in logged
     assert records[0]["promptChars"] == len("a very private question")
+
+
+def test_a_required_setting_is_read_from_the_environment(monkeypatch):
+    monkeypatch.setenv("SOME_SETTING", "value")
+
+    assert main._require_env("SOME_SETTING") == "value"
+
+
+@pytest.mark.parametrize("value", [None, ""])
+def test_a_missing_required_setting_stops_the_agent(value, monkeypatch):
+    if value is None:
+        monkeypatch.delenv("SOME_SETTING", raising=False)
+    else:
+        monkeypatch.setenv("SOME_SETTING", value)
+
+    with pytest.raises(RuntimeError, match="SOME_SETTING"):
+        main._require_env("SOME_SETTING")

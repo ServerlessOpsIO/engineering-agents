@@ -22,7 +22,16 @@ from strands.models import BedrockModel
 
 from prompt import SYSTEM_PROMPT
 
-MODEL_ID = os.environ.get("MODEL_ID", "global.anthropic.claude-haiku-5-5")
+
+def _require_env(name):
+    """Return a required environment variable, or stop the agent from starting."""
+    value = os.environ.get(name)
+    if not value:
+        raise RuntimeError(f"The {name} environment variable is not set.")
+    return value
+
+
+MODEL_ID = _require_env("MODEL_ID")
 MAX_PROMPT_CHARS = int(os.environ.get("MAX_PROMPT_CHARS", "4000"))
 MEMORY_ID = os.environ.get("MEMORY_ID")
 DEFAULT_ACTOR_ID = "default"
