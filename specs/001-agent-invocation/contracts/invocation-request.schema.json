@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://serverlessops.io/contracts/engineering-agents/invocation-request.schema.json",
+  "title": "InvocationRequest",
+  "description": "Body of an InvokeAgentRuntime call that the agent answers. A body that does not match is not an error: the agent returns an input_rejection, and it ignores properties it does not know.",
+  "type": "object",
+  "required": ["prompt"],
+  "properties": {
+    "prompt": {
+      "type": "string",
+      "description": "The prompt. Trimmed before use. Must not be empty after trimming. The maximum length is the MaxPromptChars deployment parameter (4000 by default), measured after trimming.",
+      "pattern": "\\S"
+    },
+    "actorId": {
+      "type": "string",
+      "description": "Who is asking. Separates conversations in memory (feature 002). Treated as 'default' when absent or empty.",
+      "minLength": 1
+    }
+  },
+  "additionalProperties": true
+}

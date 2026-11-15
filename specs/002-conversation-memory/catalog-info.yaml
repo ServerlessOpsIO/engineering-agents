@@ -1,0 +1,32 @@
+apiVersion: backstage.io/v1alpha1
+kind: Resource
+metadata:
+  name: engineering-agents-spec-002
+  title: "002 - Conversation memory"
+  description: "As a caller I'd like follow-up prompts in the same conversation to be understood in light of what was said earlier"
+  annotations:
+    github.com/project-slug: ServerlessOpsIO/engineering-agents
+    serverlessops.io/spec-dir: specs/002-conversation-memory
+    serverlessops.io/spec-number: "002"
+    serverlessops.io/spec-issue: "2"
+    serverlessops.io/spec-type: "feature"
+    backstage.io/source-location: url:https://github.com/ServerlessOpsIO/engineering-agents/tree/main/specs/002-conversation-memory/
+    backstage.io/techdocs-ref: dir:.
+  tags:
+    - speckit
+  links:
+    - url: https://github.com/ServerlessOpsIO/engineering-agents/blob/main/specs/002-conversation-memory/spec.md
+      title: Specification
+      icon: docs
+    - url: https://github.com/ServerlessOpsIO/engineering-agents/blob/main/specs/002-conversation-memory/plan.md
+      title: Implementation plan
+      icon: docs
+    - url: https://github.com/ServerlessOpsIO/engineering-agents/issues/2
+      title: Spec tracking issue
+      icon: github
+spec:
+  type: doc-spec
+  owner: group:00gjdgxs1ur6lsu
+  system: slack-ai-agent
+  dependsOn:
+    - component:default/engineering-agents

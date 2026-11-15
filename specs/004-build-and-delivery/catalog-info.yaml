@@ -1,0 +1,32 @@
+apiVersion: backstage.io/v1alpha1
+kind: Resource
+metadata:
+  name: engineering-agents-spec-004
+  title: "004 - Build and delivery"
+  description: "As a developer I'd like every pushed change to be tested, packaged and deployed automatically, with dependencies declared once and locked"
+  annotations:
+    github.com/project-slug: ServerlessOpsIO/engineering-agents
+    serverlessops.io/spec-dir: specs/004-build-and-delivery
+    serverlessops.io/spec-number: "004"
+    serverlessops.io/spec-issue: "4"
+    serverlessops.io/spec-type: "feature"
+    backstage.io/source-location: url:https://github.com/ServerlessOpsIO/engineering-agents/tree/main/specs/004-build-and-delivery/
+    backstage.io/techdocs-ref: dir:.
+  tags:
+    - speckit
+  links:
+    - url: https://github.com/ServerlessOpsIO/engineering-agents/blob/main/specs/004-build-and-delivery/spec.md
+      title: Specification
+      icon: docs
+    - url: https://github.com/ServerlessOpsIO/engineering-agents/blob/main/specs/004-build-and-delivery/plan.md
+      title: Implementation plan
+      icon: docs
+    - url: https://github.com/ServerlessOpsIO/engineering-agents/issues/4
+      title: Spec tracking issue
+      icon: github
+spec:
+  type: doc-spec
+  owner: group:00gjdgxs1ur6lsu
+  system: slack-ai-agent
+  dependsOn:
+    - component:default/engineering-agents
