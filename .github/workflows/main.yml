@@ -50,20 +50,13 @@ jobs:
       - name: Setup job workspace
         uses: ServerlessOpsIO/gha-setup-workspace@v2
 
-      - name: Setup Python
-        uses: actions/setup-python@v6
+      - name: Setup Python environment
+        uses: ServerlessOpsIO/gha-setup-python@v1
         with:
-          python-version: '3.14'
-          cache: pipenv
-
-      - name: Install pipenv
-        run: pip install pipenv
-
-      - name: Install dependencies
-        run: pipenv install --dev --deploy
+          python_version: '3.14'
 
       - name: Run tests
-        run: pipenv run pytest
+        run: pipenv run test-unit
 
       - name: Assume AWS credentials
         uses: ServerlessOpsIO/gha-assume-aws-credentials@v1

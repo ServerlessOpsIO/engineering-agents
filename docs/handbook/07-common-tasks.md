@@ -4,7 +4,7 @@
 
 ```bash
 pipenv install --dev
-pipenv run pytest
+pipenv run test-unit
 sam validate --lint
 ```
 

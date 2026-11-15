@@ -16,3 +16,7 @@ boto3 = "*"
 
 [requires]
 python_version = "3.14"
+
+[scripts]
+test = "pytest -vv tests"
+test-unit = "pytest -vv tests/unit"
