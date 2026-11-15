@@ -1,0 +1,220 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  engineering-agents
+
+  AWS AgentCore agents for engineering tasks
+
+
+Parameters:
+  Domain:
+    Type: String
+    Description: 'Name of Domain'
+
+  System:
+    Type: String
+    Description: "Name of System"
+
+  Component:
+    Type: String
+    Description: "Name of Component"
+
+  CodeBranch:
+    Type: String
+    Description: "Name of GitHub Branch"
+
+  ContainerRepo:
+    Type: String
+    Description: "ECR registry host that holds the agent image; ex. 123456789012.dkr.ecr.us-east-1.amazonaws.com"
+
+  ContainerOrg:
+    Type: String
+    Description: "First part of the ECR repository name (the GitHub owner slug)"
+
+  ContainerImage:
+    Type: String
+    Description: "Second part of the ECR repository name (the GitHub repository slug)"
+
+  ContainerTag:
+    Type: String
+    Description: "Agent image tag. The workflows pass the commit SHA."
+
+  ModelId:
+    Type: String
+    Description: >-
+      Amazon Bedrock inference profile ID the agent uses, in the form
+      <scope>.<provider>.<model>; ex. global.anthropic.claude-haiku-5-5
+    AllowedPattern: '^[a-z-]+\.[a-z0-9-]+\.[a-zA-Z0-9:_-]+$'
+    Default: 'global.anthropic.claude-haiku-5-5'
+
+  MaxPromptChars:
+    Type: Number
+    Description: "Longest prompt the agent accepts, in characters"
+    Default: 4000
+
+  LogLevel:
+    Type: String
+    Description: "Agent log level"
+    AllowedValues:
+      - DEBUG
+      - INFO
+      - WARNING
+      - ERROR
+    Default: INFO
+
+  MemoryEventExpiryDays:
+    Type: Number
+    Description: "Days a conversation's events are kept in AgentCore Memory"
+    MinValue: 3
+    MaxValue: 365
+    Default: 7
+
+
+Resources:
+  # Role the runtime assumes to run the agent. It follows the AWS-documented
+  # AgentCore Runtime execution role, narrowed to this agent's log groups,
+  # model and image repository.
+  AgentExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: bedrock-agentcore.amazonaws.com
+            Action: sts:AssumeRole
+            Condition:
+              StringEquals:
+                aws:SourceAccount: !Ref AWS::AccountId
+              ArnLike:
+                aws:SourceArn: !Sub 'arn:${AWS::Partition}:bedrock-agentcore:${AWS::Region}:${AWS::AccountId}:*'
+      Policies:
+        - PolicyName: AgentRuntime
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Sid: Logs
+                Effect: Allow
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:DescribeLogStreams
+                Resource: !Sub 'arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/bedrock-agentcore/runtimes/*'
+              - Sid: LogGroupDiscovery
+                Effect: Allow
+                Action: logs:DescribeLogGroups
+                Resource: !Sub 'arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:*'
+              - Sid: LogEvents
+                Effect: Allow
+                Action:
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource: !Sub 'arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/bedrock-agentcore/runtimes/*:log-stream:*'
+              # Wildcard resources: the X-Ray actions, cloudwatch:PutMetricData
+              # and ecr:GetAuthorizationToken do not support resource-level
+              # permissions. PutMetricData is limited to the AgentCore namespace.
+              - Sid: Tracing
+                Effect: Allow
+                Action:
+                  - xray:PutTraceSegments
+                  - xray:PutTelemetryRecords
+                  - xray:GetSamplingRules
+                  - xray:GetSamplingTargets
+                Resource: '*'
+              - Sid: Metrics
+                Effect: Allow
+                Action: cloudwatch:PutMetricData
+                Resource: '*'
+                Condition:
+                  StringEquals:
+                    cloudwatch:namespace: bedrock-agentcore
+              - Sid: EcrToken
+                Effect: Allow
+                Action: ecr:GetAuthorizationToken
+                Resource: '*'
+              # The image repository is in the CI/CD account. Its account ID
+              # and region are taken from the registry host in ContainerRepo.
+              - Sid: EcrImage
+                Effect: Allow
+                Action:
+                  - ecr:BatchGetImage
+                  - ecr:GetDownloadUrlForLayer
+                Resource: !Sub
+                  - 'arn:${AWS::Partition}:ecr:${RepoRegion}:${RepoAccountId}:repository/${ContainerOrg}/${ContainerImage}'
+                  - RepoAccountId: !Select [0, !Split ['.', !Ref ContainerRepo]]
+                    RepoRegion: !Select [3, !Split ['.', !Ref ContainerRepo]]
+              # The inference profile routes requests to the model in other
+              # regions, so the foundation model is allowed in any region. The
+              # region-less form is the one global profiles use.
+              - Sid: Model
+                Effect: Allow
+                Action:
+                  - bedrock:InvokeModel
+                  - bedrock:InvokeModelWithResponseStream
+                Resource:
+                  - !Sub 'arn:${AWS::Partition}:bedrock:${AWS::Region}:${AWS::AccountId}:inference-profile/${ModelId}'
+                  - !Sub
+                    - 'arn:${AWS::Partition}:bedrock:*::foundation-model/${Provider}.${Model}'
+                    - Provider: !Select [1, !Split ['.', !Ref ModelId]]
+                      Model: !Select [2, !Split ['.', !Ref ModelId]]
+                  - !Sub
+                    - 'arn:${AWS::Partition}:bedrock:::foundation-model/${Provider}.${Model}'
+                    - Provider: !Select [1, !Split ['.', !Ref ModelId]]
+                      Model: !Select [2, !Split ['.', !Ref ModelId]]
+              - Sid: Memory
+                Effect: Allow
+                Action:
+                  - bedrock-agentcore:CreateEvent
+                  - bedrock-agentcore:GetEvent
+                  - bedrock-agentcore:ListEvents
+                  - bedrock-agentcore:DeleteEvent
+                  - bedrock-agentcore:ListSessions
+                Resource: !GetAtt AgentMemory.MemoryArn
+
+  # Runtime and memory names allow only letters, digits and underscores, with a
+  # 48 character limit, so hyphens in the component and branch slugs become
+  # underscores. A name change replaces the resource.
+  AgentRuntime:
+    Type: AWS::BedrockAgentCore::Runtime
+    Properties:
+      AgentRuntimeName: !Join ['_', !Split ['-', !Sub '${Component}_${CodeBranch}']]
+      RoleArn: !GetAtt AgentExecutionRole.Arn
+      ProtocolConfiguration: HTTP
+      NetworkConfiguration:
+        NetworkMode: PUBLIC
+      AgentRuntimeArtifact:
+        ContainerConfiguration:
+          ContainerUri: !Sub '${ContainerRepo}/${ContainerOrg}/${ContainerImage}:${ContainerTag}'
+      # Sessions end after 5 idle minutes and live for at most 30, which keeps
+      # idle compute low. Raise both for agents that run long tasks.
+      LifecycleConfiguration:
+        IdleRuntimeSessionTimeout: 300
+        MaxLifetime: 1800
+      EnvironmentVariables:
+        MODEL_ID: !Ref ModelId
+        MAX_PROMPT_CHARS: !Ref MaxPromptChars
+        LOG_LEVEL: !Ref LogLevel
+        MEMORY_ID: !GetAtt AgentMemory.MemoryId
+
+  # Short-term conversation memory: the events of each session are kept for
+  # MemoryEventExpiryDays. No long-term strategies are configured.
+  AgentMemory:
+    Type: AWS::BedrockAgentCore::Memory
+    Properties:
+      Name: !Join ['_', !Split ['-', !Sub '${Component}_${CodeBranch}']]
+      Description: 'Conversation memory for engineering-agents'
+      EventExpiryDuration: !Ref MemoryEventExpiryDays
+
+
+Outputs:
+  AgentRuntimeArn:
+    Description: "ARN of the agent runtime. Callers need bedrock-agentcore:InvokeAgentRuntime on it."
+    Value: !GetAtt AgentRuntime.AgentRuntimeArn
+
+  AgentRuntimeId:
+    Description: "ID of the agent runtime. Logs are in /aws/bedrock-agentcore/runtimes/<id>-DEFAULT."
+    Value: !GetAtt AgentRuntime.AgentRuntimeId
+
+  AgentMemoryId:
+    Description: "ID of the agent's AgentCore Memory"
+    Value: !GetAtt AgentMemory.MemoryId

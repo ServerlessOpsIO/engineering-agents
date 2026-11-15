@@ -1,0 +1,10 @@
+{
+    "Domain": "sandbox",
+    "System": "slack-ai-agent",
+    "Component": $env.GITHUB_REPOSITORY_NAME_PART_SLUG_CS,
+    "CodeBranch": $env.GITHUB_REF_SLUG_CS,
+    "ContainerRepo": $secrets.AWS_ECR_REPO,
+    "ContainerOrg": $env.GITHUB_REPOSITORY_OWNER_PART_SLUG,
+    "ContainerImage": $env.GITHUB_REPOSITORY_NAME_PART_SLUG,
+    "ContainerTag": $env.GITHUB_SHA
+}

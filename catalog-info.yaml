@@ -1,0 +1,14 @@
+---
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: engineering-agents
+  description: AWS AgentCore agents for engineering tasks
+  annotations:
+    github.com/project-slug: ServerlessOpsIO/engineering-agents
+    backstage.io/techdocs-ref: dir:.
+spec:
+  type: ai-agent
+  lifecycle: production
+  owner: group:00gjdgxs1ur6lsu
+  system: system:slack-ai-agent
