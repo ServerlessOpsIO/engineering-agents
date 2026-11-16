@@ -46,7 +46,7 @@ Values the runtime passes to the agent as environment variables.
 
 | Variable | Template parameter | Default | Notes |
 |---|---|---|---|
-| `MODEL_ID` | `ModelId` | `global.anthropic.claude-haiku-5-5` | Bedrock inference profile ID, `<scope>.<provider>.<model>`. |
+| `MODEL_ID` | `ModelId` | None. Set to `us.openai.gpt-6-luna` in `cfn-parameters.json`. | A United States Bedrock inference profile ID. Changed by feature 005. |
 | `MAX_PROMPT_CHARS` | `MaxPromptChars` | `4000` | Longest prompt accepted. |
 | `LOG_LEVEL` | `LogLevel` | `INFO` | Feature 003. |
 | `MEMORY_ID` | none (from `AgentMemory`) | none | Feature 002. |

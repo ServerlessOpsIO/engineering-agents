@@ -30,6 +30,19 @@ ID.
 Calls rejected for lack of permission (403) never reach the agent, so they do not appear in
 its logs. AWS CloudTrail records them if the account logs AgentCore data events.
 
+## Tell a missing prerequisite apart
+
+Two conditions outside this project stop the agent from answering, and both look the same in
+the request record: `kind` is `error` and `errorType` is `AccessDeniedException`. The stack
+trace entry that follows the record, starting `Request <requestId> failed`, tells them apart:
+
+| Cause | Text in the entry | Fix |
+| --- | --- | --- |
+| The account has no access to the model | `is not available for this account` | Enable the model for the deployment account in Amazon Bedrock |
+| A region the profile routes to is restricted | `with an explicit deny in a service control policy` | Allow Bedrock model invocation in `us-east-1`, `us-east-2` and `us-west-2` |
+
+The caller sees the same generic error in both cases.
+
 ## Traces
 
 The container runs the agent under `opentelemetry-instrument` from the AWS OpenTelemetry

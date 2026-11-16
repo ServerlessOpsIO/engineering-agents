@@ -1,0 +1,28 @@
+apiVersion: backstage.io/v1alpha1
+kind: Resource
+metadata:
+  name: engineering-agents-spec-005
+  title: "005 - OpenAI model migration"
+  description: "As a developer my agent uses OpenAI GPT-6 Luna on Amazon Bedrock instead of Claude Haiku 5.5"
+  annotations:
+    github.com/project-slug: ServerlessOpsIO/engineering-agents
+    serverlessops.io/spec-dir: specs/005-model-migration
+    serverlessops.io/spec-number: "005"
+    serverlessops.io/spec-type: "feature"
+    backstage.io/source-location: url:https://github.com/ServerlessOpsIO/engineering-agents/tree/main/specs/005-model-migration/
+    backstage.io/techdocs-ref: dir:.
+  tags:
+    - speckit
+  links:
+    - url: https://github.com/ServerlessOpsIO/engineering-agents/blob/main/specs/005-model-migration/spec.md
+      title: Specification
+      icon: docs
+    - url: https://github.com/ServerlessOpsIO/engineering-agents/blob/main/specs/005-model-migration/plan.md
+      title: Implementation plan
+      icon: docs
+spec:
+  type: doc-spec
+  owner: group:00gjdgxs1ur6lsu
+  system: slack-ai-agent
+  dependsOn:
+    - component:default/engineering-agents

@@ -32,6 +32,9 @@ def _require_env(name):
 
 
 MODEL_ID = _require_env("MODEL_ID")
+# How much the model reasons before answering. Unset, empty or "default" leaves
+# the choice to the model.
+REASONING_EFFORT = os.environ.get("REASONING_EFFORT")
 MAX_PROMPT_CHARS = int(os.environ.get("MAX_PROMPT_CHARS", "4000"))
 MEMORY_ID = os.environ.get("MEMORY_ID")
 DEFAULT_ACTOR_ID = "default"
@@ -57,7 +60,10 @@ def get_model():
     """Create the model client on first use so importing this module calls nothing."""
     global _model
     if _model is None:
-        _model = BedrockModel(model_id=MODEL_ID)
+        options = {"model_id": MODEL_ID}
+        if REASONING_EFFORT and REASONING_EFFORT != "default":
+            options["additional_request_fields"] = {"reasoning": {"effort": REASONING_EFFORT}}
+        _model = BedrockModel(**options)
     return _model
 
 

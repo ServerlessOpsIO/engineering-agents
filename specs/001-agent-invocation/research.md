@@ -55,6 +55,10 @@ not guess. No alternatives were recorded for any decision, so none are listed.
   same value: the inference profile, and the foundation model in any region.
 - **Rationale**: Template comment: "The inference profile routes requests to the model in
   other regions, so the foundation model is allowed in any region."
+- **Changed by feature 005** (`specs/005-model-migration/`): `ModelId` no longer has a default
+  in `template.yaml` and is set to `us.openai.gpt-6-luna` in `cfn-parameters.json`. It must
+  be a United States inference profile. The role now allows that profile, and a foundation
+  model only when reached through it.
 
 ## Decision 8: Create the model client on first use
 

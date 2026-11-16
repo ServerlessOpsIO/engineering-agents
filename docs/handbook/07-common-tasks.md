@@ -17,7 +17,7 @@ Needs AWS credentials that can invoke the model.
 
 ```bash
 cd src/agent
-MODEL_ID=us.anthropic.claude-haiku-5-5 pipenv run python main.py
+MODEL_ID=us.openai.gpt-6-luna pipenv run python main.py
 ```
 
 In another terminal:
@@ -46,8 +46,19 @@ prompt must keep.
 
 ## Change the model
 
-Set `ModelId` in `cfn-parameters.json`. Use an inference profile ID of the form
-`<scope>.<provider>.<model>`. The execution role's permission follows the parameter. Confirm the deployment account has access to the model first.
+Set `ModelId` in `cfn-parameters.json` and deploy. It must be a United States inference
+profile ID, which starts with `us.`; global profiles are refused because the organization's
+region restriction denies them. The execution role's permission follows the parameter.
+Confirm the deployment account has access to the model first.
+
+The rest of the ID is not checked. A mistyped value that still starts with `us.` deploys and
+then fails at the first request.
+
+## Change how much the model reasons
+
+Set `ReasoningEffort` in `cfn-parameters.json` and deploy. The values are `default`, `none`,
+`low`, `medium`, `high`, `xhigh` and `max`. `default` leaves the choice to the model.
+Reasoning is billed as output, so lower levels cost less and answer sooner.
 
 ## Give the agent a tool
 
