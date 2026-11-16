@@ -32,7 +32,7 @@ from slack_app.slack_api import SlackApi, failure  # noqa: E402
 from slack_app.store import Store, mask  # noqa: E402
 
 SERVICE_TOKEN = "SLACK_SERVICE_TOKEN"
-STORE_TOKEN = "SLACK_STORE_TOKEN"
+STORE_TOKEN = "SLACK_GHA_STORE_TOKEN"
 APP_ID = "SLACK_APP_ID"
 BOT_TOKEN = "SLACK_BOT_TOKEN"
 SIGNING_SECRET = "SLACK_SIGNING_SECRET"

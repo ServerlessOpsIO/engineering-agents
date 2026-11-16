@@ -210,7 +210,7 @@ jobs:
         env:
           SLACK_SERVICE_TOKEN: ${{ secrets.SLACK_SERVICE_TOKEN }}
           # Only this job writes to GitHub: the new app's ID and secrets.
-          SLACK_STORE_TOKEN: ${{ secrets.SLACK_STORE_TOKEN }}
+          SLACK_GHA_STORE_TOKEN: ${{ secrets.SLACK_GHA_STORE_TOKEN }}
           SLACK_APP_ID: ${{ vars.SLACK_APP_ID }}
           SLACK_ACTION_OK: ${{ steps.export.outputs.ok }}
           SLACK_ACTION_ERROR: ${{ fromJSON(steps.export.outputs.response || '{}').error }}

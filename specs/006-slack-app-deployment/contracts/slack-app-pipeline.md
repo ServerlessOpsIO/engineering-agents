@@ -88,7 +88,7 @@ exists, and otherwise calls `apps.manifest.create` itself and stores the app's v
 | `verify` | Files; `SLACK_BOT_TOKEN` if set | Checks the installed app's scopes | Nothing |
 | `validate` (by hand) | Files; `SLACK_SERVICE_TOKEN`; `SLACK_APP_ID` if set | Asks Slack to validate the built manifest | Nothing |
 | `apply` (by hand) | Files; `SLACK_SERVICE_TOKEN`; `SLACK_APP_ID`; `SLACK_BOT_TOKEN` if set | Confirms the app exists; updates it; checks installed scopes | Nothing |
-| `create [--existence-from-action]` | Files; `SLACK_SERVICE_TOKEN`; `SLACK_STORE_TOKEN`; `SLACK_APP_ID` if set; with the option, the `SLACK_ACTION_*` fields for `apps.manifest.export` | Refuses if the recorded app exists, asking Slack itself or, with the option, reading the answer the action got; creates the app | `SLACK_APP_ID`, `SLACK_SIGNING_SECRET`, `SLACK_CLIENT_ID`, `SLACK_CLIENT_SECRET` |
+| `create [--existence-from-action]` | Files; `SLACK_SERVICE_TOKEN`; `SLACK_GHA_STORE_TOKEN`; `SLACK_APP_ID` if set; with the option, the `SLACK_ACTION_*` fields for `apps.manifest.export` | Refuses if the recorded app exists, asking Slack itself or, with the option, reading the answer the action got; creates the app | `SLACK_APP_ID`, `SLACK_SIGNING_SECRET`, `SLACK_CLIENT_ID`, `SLACK_CLIENT_SECRET` |
 
 Inputs come from environment variables with the names above, plus `GITHUB_REPOSITORY` for
 `create`.
@@ -97,7 +97,7 @@ Inputs come from environment variables with the names above, plus `GITHUB_REPOSI
 
 1. Run the offline check. Stop on failure; Slack is not contacted.
 2. Read `SLACK_SERVICE_TOKEN`. It is sent to Slack as it is and is never written anywhere.
-3. For `create` only: confirm `SLACK_STORE_TOKEN` is set before creating anything.
+3. For `create` only: confirm `SLACK_GHA_STORE_TOKEN` is set before creating anything.
 4. Everything else.
 
 ### Exit codes

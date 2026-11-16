@@ -1,7 +1,7 @@
 """Writes values to this repository's GitHub secrets and variables with the `gh` command.
 
 The workflow's built-in token cannot write secrets, so a separate token,
-SLACK_STORE_TOKEN, is used. Only the creation run writes anything. Values are
+SLACK_GHA_STORE_TOKEN, is used. Only the creation run writes anything. Values are
 passed on standard input and never as arguments, so they do not appear in a
 process list.
 """
@@ -42,7 +42,7 @@ class Store:
 
     def _set(self, kind, name, value):
         if not self._token:
-            raise SlackAppError("credential_missing", ["SLACK_STORE_TOKEN is not set"])
+            raise SlackAppError("credential_missing", ["SLACK_GHA_STORE_TOKEN is not set"])
         if not self._repository:
             raise SlackAppError("credential_missing", ["GITHUB_REPOSITORY is not set"])
 

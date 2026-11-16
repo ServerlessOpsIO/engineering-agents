@@ -109,7 +109,7 @@ class Run:
         self.output_file = tmp_path / "output.txt"
         self.env = {
             "SLACK_SERVICE_TOKEN": SERVICE_TOKEN,
-            "SLACK_STORE_TOKEN": STORE_TOKEN,
+            "SLACK_GHA_STORE_TOKEN": STORE_TOKEN,
             "SLACK_APP_ID": "A0OLD",
             "SLACK_BOT_TOKEN": BOT_TOKEN,
             "GITHUB_REPOSITORY": "ServerlessOpsIO/engineering-agents",
@@ -220,10 +220,10 @@ def test_a_missing_service_token_is_a_missing_credential(run, command):
 
 def test_nothing_is_created_when_the_apps_values_could_not_be_stored(run):
     run.env.pop("SLACK_APP_ID")
-    run.env.pop("SLACK_STORE_TOKEN")
+    run.env.pop("SLACK_GHA_STORE_TOKEN")
     assert run("create").code == 1
     assert run.kind == "credential_missing"
-    assert "SLACK_STORE_TOKEN is not set" in run.summary
+    assert "SLACK_GHA_STORE_TOKEN is not set" in run.summary
     assert run.log == []
 
 

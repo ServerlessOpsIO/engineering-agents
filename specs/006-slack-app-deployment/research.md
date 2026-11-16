@@ -55,7 +55,7 @@ work here.
 
 **What it removes**: renewing on every run; writing a secret on every run; the failure in
 which a renewed token is lost before it is stored; the need for runs never to overlap for
-the credential's sake; `SLACK_STORE_TOKEN` in every job but `create`.
+the credential's sake; `SLACK_GHA_STORE_TOKEN` in every job but `create`.
 
 **What it costs**: a permanent credential that can do anything the Slack CLI can as the
 owner, where the earlier design had one that changed on every run. It is readable by
@@ -167,7 +167,7 @@ step. Rejected.
 **Decision**: Repository-level secrets and variables (not environment-level), so the later
 feature's deploy job can read them however it is arranged. Writing them from a workflow uses
 a fine-grained personal access token limited to this repository with "Secrets: write" and
-"Variables: write" (F16), stored as `SLACK_STORE_TOKEN`. Values are written with the `gh`
+"Variables: write" (F16), stored as `SLACK_GHA_STORE_TOKEN`. Values are written with the `gh`
 command, which does the encryption GitHub requires.
 
 **Rationale**: The owner chose GitHub secrets as the starting point. A fine-grained token is

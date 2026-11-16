@@ -131,7 +131,7 @@ one is cancelled in favour of the newest.
 
 Jobs that contact Slack use `SLACK_SERVICE_TOKEN`, a Slack CLI service token that does not
 expire and is never rewritten. Only the `create` job writes to GitHub, using
-`SLACK_STORE_TOKEN`. See [Credentials and when they expire](08-slack-app.md#credentials-and-when-they-expire).
+`SLACK_GHA_STORE_TOKEN`. See [Credentials and when they expire](08-slack-app.md#credentials-and-when-they-expire).
 
 ### Secrets in logs
 

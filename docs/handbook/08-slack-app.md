@@ -60,7 +60,7 @@ app managed by the pipeline. Four steps are done by hand; the reason is given fo
    3. Repository permissions: **Secrets: Read and write** and **Variables: Read and write**.
       Nothing else.
    4. Choose an expiry date and put a reminder in your calendar for a week before it.
-   5. Store it as the repository secret `SLACK_STORE_TOKEN`.
+   5. Store it as the repository secret `SLACK_GHA_STORE_TOKEN`.
 
 3. **Create the app. By the pipeline.** In GitHub, open **Actions**, **Slack app**, **Run
    workflow**, choose the branch `main` and the action `create`. The run:
@@ -119,7 +119,7 @@ pipenv run slack-app validate    # asks Slack; changes nothing
 pipenv run slack-app apply       # updates the app; add SLACK_BOT_TOKEN to check permissions
 ```
 
-`create` also runs by hand. It needs `SLACK_STORE_TOKEN` and `GITHUB_REPOSITORY` as well,
+`create` also runs by hand. It needs `SLACK_GHA_STORE_TOKEN` and `GITHUB_REPOSITORY` as well,
 and writes the new app's values to GitHub, not to your machine.
 
 ## Changing the app
@@ -174,15 +174,15 @@ The pipeline does not check that the address answers.
 | Credential | Access | Expires |
 | --- | --- | --- |
 | `SLACK_SERVICE_TOKEN` | Anything the Slack CLI can do as you, including creating and changing your Slack apps | Never. Revoke it with `slack auth revoke --token <token>`. |
-| `SLACK_STORE_TOKEN` | Write this repository's secrets and variables | On the date you chose. |
+| `SLACK_GHA_STORE_TOKEN` | Write this repository's secrets and variables | On the date you chose. |
 
 Branch runs can read `SLACK_SERVICE_TOKEN`, because asking Slack to validate needs it. Only
-the `create` job is given `SLACK_STORE_TOKEN`, though any workflow run in this repository
+the `create` job is given `SLACK_GHA_STORE_TOKEN`, though any workflow run in this repository
 could ask for it. That is acceptable
 while you are the only person who can push to this repository. If that changes, move the
 Slack validation step behind a GitHub environment limited to `main`.
 
-An expired `SLACK_STORE_TOKEN` does not affect everyday runs. It only matters the next time
+An expired `SLACK_GHA_STORE_TOKEN` does not affect everyday runs. It only matters the next time
 the `create` action is needed, which fails with `store_failed` until a new token is stored
 as in step 2 of the first-time setup.
 
@@ -199,7 +199,7 @@ longer version.
 | `invalid_definition` | The definition breaks Slack's schema, this project's rules, or Slack's validation. Nothing in Slack changed. | Fix the problems listed in the summary. | The check passes. |
 | `credential_missing` | A secret or variable is not set. Slack was not contacted. | Set the one named in the summary; see the first-time setup. | The run gets further. |
 | `credential_rejected` | Slack refused the service token. It was revoked, or is not the right kind of token. | Get a new service token as in step 1 of the first-time setup and store it. | Runs pass again. Nothing else changes. |
-| `store_failed` | A value could not be written to GitHub. Any change already made in Slack stays. | Check `SLACK_STORE_TOKEN` and its expiry, then see "A stored value was lost" below. | All values are stored. |
+| `store_failed` | A value could not be written to GitHub. Any change already made in Slack stays. | Check `SLACK_GHA_STORE_TOKEN` and its expiry, then see "A stored value was lost" below. | All values are stored. |
 | `app_not_recorded` | `SLACK_APP_ID` is not set. | Run the workflow with the action `create`. | The app exists and is recorded. |
 | `app_gone` | Slack says the recorded app does not exist. | See "The app was deleted" below. | A new app is recorded and installed. |
 | `app_exists` | The action `create` was run while the recorded app exists. Nothing was created. | Nothing. | Unchanged. |
