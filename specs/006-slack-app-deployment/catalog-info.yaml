@@ -1,0 +1,28 @@
+apiVersion: backstage.io/v1alpha1
+kind: Resource
+metadata:
+  name: engineering-agents-spec-006
+  title: "006 - STRIDEr Slack app deployment"
+  description: "As a developer I can deploy my STRIDEr Slack bot using IaC and a CI/CD pipeline"
+  annotations:
+    github.com/project-slug: ServerlessOpsIO/engineering-agents
+    serverlessops.io/spec-dir: specs/006-slack-app-deployment
+    serverlessops.io/spec-number: "006"
+    serverlessops.io/spec-type: "feature"
+    backstage.io/source-location: url:https://github.com/ServerlessOpsIO/engineering-agents/tree/main/specs/006-slack-app-deployment/
+    backstage.io/techdocs-ref: dir:.
+  tags:
+    - speckit
+  links:
+    - url: https://github.com/ServerlessOpsIO/engineering-agents/blob/main/specs/006-slack-app-deployment/spec.md
+      title: Specification
+      icon: docs
+    - url: https://github.com/ServerlessOpsIO/engineering-agents/blob/main/specs/006-slack-app-deployment/plan.md
+      title: Implementation plan
+      icon: docs
+spec:
+  type: doc-spec
+  owner: group:00gjdgxs1ur6lsu
+  system: slack-ai-agent
+  dependsOn:
+    - component:default/engineering-agents
