@@ -13,8 +13,9 @@ Pushes that change only `specs/**` or `docs/**` do not run `Main` or `Branches`.
 
 ## Jobs
 
-`Main` and `Branches` run the same three jobs. **Both deploy**: every branch that runs the workflow
-gets its own stack.
+`Main` and `Branches` have the same three jobs. **Only `Main` deploys at present.** The
+`deploy` job in `Branches` is switched off with `if: false`, because it fails for branches
+with long names (issue #10). Branch pushes still run the tests and build the image.
 
 ### `build_infra`
 
@@ -50,7 +51,8 @@ publishes one, including commits that do not change the agent.
 
 ## Branch stacks
 
-A branch deployment creates a separate runtime and memory named after the branch.
+Branch deployments are switched off at present (issue #10). When they are on, a branch
+deployment creates a separate runtime and memory named after the branch.
 
 - The runtime name `<component>_<branch>` must be 48 characters or fewer. A longer branch name
   fails the deployment.
