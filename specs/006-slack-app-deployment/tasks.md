@@ -192,6 +192,15 @@ The owner then chose to have Slack's official action make the validate and updat
 - [X] T056 In `.github/workflows/slack-app.yml`, add an `apps.manifest.export` call through `slackapi/slack-github-action` to `apply`, followed by `slack-app result`, and to `create` when `SLACK_APP_ID` is set, followed by `slack-app create --existence-from-action`
 - [X] T057 Update `docs/handbook/05-ci-cd.md`, and `research.md` and `contracts/slack-app-pipeline.md` in `specs/006-slack-app-deployment/`
 
+## Change after merging: the app's icon (2026-11-16)
+
+- [X] T058 Add `slack/icon.jpg`, the icon the owner supplied (554 by 554 pixels, JPEG)
+- [X] T059 Add `scripts/slack_app/icon.py` (find the icon; check it is one PNG or JPEG file, square, 512 to 2,000 pixels a side, named for its format), `set_icon` to `scripts/slack_app/slack_api.py` (`apps.icon.set` as a multipart form), and the `icon` command to `scripts/slack_app/__main__.py`; `check` also checks the icon and `apply` by hand also sets it
+- [X] T060 Add `tests/unit/test_slack_icon.py` and icon tests to `tests/unit/test_slack_api.py` and `tests/unit/test_slack_commands.py`
+- [X] T061 Add the "Set the app's icon" step to the `apply` job in `.github/workflows/slack-app.yml`, after the update and before the permissions check
+- [X] T062 Update `docs/handbook/08-slack-app.md` and `05-ci-cd.md`, and `spec.md`, `research.md`, `data-model.md` and `contracts/slack-app-pipeline.md` in `specs/006-slack-app-deployment/`
+- [ ] T063 **(owner)** After merging, confirm the "Set the app's icon" step passes and the icon shows in Slack; record the result in `specs/006-slack-app-deployment/research.md` (Decision 14)
+
 ## Dependencies & Execution Order
 
 ### Phase dependencies

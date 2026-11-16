@@ -76,6 +76,35 @@ def test_create_sends_the_manifest_and_returns_slacks_answer():
     assert slack.calls[0]["params"] == {"manifest": MANIFEST}
 
 
+def test_set_icon_uploads_the_file_and_the_app_id_as_a_form():
+    sent = {}
+
+    def transport(url, headers, body):
+        sent.update(url=url, headers=headers, body=body)
+        return 200, {}, b'{"ok": true}'
+
+    SlackApi(transport).set_icon(CONFIG_TOKEN, "A123", "icon.jpg", "image/jpeg", b"\xff\xd8DATA")
+    assert sent["url"].endswith("/apps.icon.set")
+    assert sent["headers"]["Authorization"] == f"Bearer {CONFIG_TOKEN}"
+    content_type = sent["headers"]["Content-Type"]
+    assert content_type.startswith("multipart/form-data; boundary=")
+    boundary = content_type.split("boundary=")[1].encode()
+    parts = sent["body"].split(b"--" + boundary)
+    assert parts[-1] == b"--\r\n"
+    assert (
+        b'Content-Disposition: form-data; name="file"; filename="icon.jpg"\r\n'
+        b"Content-Type: image/jpeg\r\n\r\n\xff\xd8DATA\r\n"
+    ) in parts[1]
+    assert b'Content-Disposition: form-data; name="app_id"\r\n\r\nA123\r\n' in parts[2]
+
+
+def test_set_icon_reports_a_refused_credential():
+    assert failure(
+        error("invalid_auth"),
+        lambda api: api.set_icon(CONFIG_TOKEN, "A1", "icon.png", "image/png", b"x"),
+    ).kind == "credential_rejected"
+
+
 def test_auth_test_returns_the_scopes_the_token_holds():
     slack = FakeSlack(ok(headers={"x-oauth-scopes": "chat:write, im:history,app_mentions:read"}))
     assert SlackApi(slack).auth_test_scopes(BOT_TOKEN) == {

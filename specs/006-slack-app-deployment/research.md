@@ -113,6 +113,26 @@ to Slack in the pipeline are `apps.manifest.create` and `auth.test`.
 out of its output have not been linted or run. The first branch push tests `validate`; the
 first run on `main` tests `update`.
 
+## Decision 14: The icon is set with `apps.icon.set` (2026-11-16)
+
+**Decision**: The icon is `slack/icon.jpg` (or `.png`). The program uploads it in the
+`apply` job, after the update, with `apps.icon.set`: a multipart form with the file and the
+app's ID, authenticated with the service token.
+
+**Where the method comes from**: Slack's public documentation has no method for an app's
+icon, and an icon is not a manifest field. The Slack CLI's source (`internal/api/icon.go`)
+calls `apps.icon.set`, described there as "the API method for setting app icons for
+non-hosted apps", when it installs an app. The request here copies the CLI's.
+
+**Risks**: the method is undocumented, so Slack may change it without notice. The CLI
+resizes the image to 512 pixels before sending; this program sends the file as it is, and
+the offline check holds it to a square of 512 to 2,000 pixels, which is the range Slack's
+console asks for (from the author's memory, not checked). Slack's GitHub Action cannot
+upload a file, so this call stays in the program.
+
+**Not tried**: the call has not been made. The first run of `apply` on `main` after this
+is merged is its test.
+
 ## Decision 1: Call Slack's Manifest API directly; do not use Terraform (FR-022)
 
 **Decision**: A small Python program in this repository calls the Manifest API. The pipeline
