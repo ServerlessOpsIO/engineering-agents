@@ -53,6 +53,7 @@ once the Slack app does, so the Slack app is created and deployed on its own fir
 - Q: What makes an app definition invalid? → A: It fails Slack's published schema for app definitions, or this project's own rules, or Slack's own validation rejects it. Slack publishes the schema; a copy is kept in the repository.
 - Q: What should happen when Slack refuses the stored bot token? → A: The run fails saying the stored bot token is no longer valid, and does not report it as a missing permission.
 - Q: Where else must secrets never appear, given the repository is public? → A: In issues and pull requests. The hosting service masks stored secrets in pipeline logs.
+- Q: Should the pipeline keep using a short-lived credential that is replaced on every run and has to be written back each time, or a Slack CLI service token that does not expire? → A: A service token. The owner prefers one long-lived credential that the pipeline only reads over one that every run must replace and store. The owner confirmed on 2026-11-16 that Slack's validation accepts it.
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -213,10 +214,9 @@ address and confirm the pipeline carries it, and the events, into what it sends 
   saying the app must be installed again and how. Scheduled runs fail the same way until it
   has been, and pass by themselves afterwards.
 - Two runs that contact Slack close together, whether merges or a merge and a scheduled
-  run. The Slack app must end up matching the later one, and the stored credential must
-  still work afterwards.
-- The pipeline changes something in Slack and then fails to store a value: the renewed
-  pipeline credential, the app ID, the signing secret, the client ID or the client secret.
+  run. The Slack app must end up matching the later one.
+- The creation run creates the app and then fails to store a value: the app ID, the
+  signing secret, the client ID or the client secret.
   The change already made in Slack is left in place, the run fails and says which value
   was not stored, and the documentation must cover recovery.
 - The app still exists but one of its stored values has been lost. The creation run
@@ -277,7 +277,7 @@ address and confirm the pipeline carries it, and the events, into what it sends 
   deployment behave.
 - **FR-013**: There MUST be exactly one STRIDEr Slack app, in the `serverlessops` workspace,
   managed from `main`. Branches MUST NOT create or change any Slack app. A branch run may
-  renew and store the pipeline credential, because asking Slack to validate needs it.
+  read the pipeline credential, because asking Slack to validate needs it.
 - **FR-023**: Creating the Slack app MUST be done only by a pipeline run that a person
   starts by hand. It is used for the first-time setup and to replace a deleted app, and it
   MUST NOT require commands to be run on a person's own machine. It MUST refuse to create
@@ -310,8 +310,10 @@ address and confirm the pipeline carries it, and the events, into what it sends 
   in the repository's hosting service, MUST be stored as secrets in that service and MUST
   NOT be in the repository. Each MUST have only the access this feature needs. The
   documentation MUST say when each expires and what a run does once it has.
-- **FR-015**: If using a credential replaces it with a new one, the pipeline MUST store the
-  replacement in the same run, so that the next run works without a person stepping in.
+- **FR-015**: The credential for changing Slack apps MUST be one that using it does not
+  replace, so that no run has to write a credential back and the next run works without a
+  person stepping in. Only the creation run may write to the repository's hosting service,
+  and only the app's values (FR-016).
 - **FR-016**: The app ID, the signing secret, the client ID and the client secret MUST be
   stored by the creation run when the app is created, where the later feature's pipeline
   can read them. All but the app ID are stored as secrets.
@@ -345,7 +347,8 @@ address and confirm the pipeline carries it, and the events, into what it sends 
 - **Slack app**: the app registered in the `serverlessops` workspace. There is one. It is
   identified by its app ID.
 - **Pipeline credential**: what lets the pipeline create and change Slack apps on the
-  owner's behalf. It is short-lived and is replaced each time it is renewed.
+  owner's behalf. A Slack CLI service token: issued to the owner, long-lived, and not
+  replaced when used. The pipeline reads it and never writes it.
 - **App values**: the app ID (not secret); the signing secret, client ID and client secret
   (stored as secrets, issued when the app is created); and the bot token (secret, issued
   when the app is installed). Produced here, consumed by the later feature.
@@ -381,7 +384,7 @@ address and confirm the pipeline carries it, and the events, into what it sends 
 - **SC-009**: A change made by hand in the Slack console is gone within 24 hours without
   anyone merging anything.
 - **SC-010**: Ten runs that contact Slack in a row, merges and scheduled runs together,
-  succeed without a person renewing a credential.
+  succeed without a person touching a credential.
 - **SC-011**: `template.yaml` and `cfn-parameters.json` are identical before and after this
   feature.
 - **SC-012**: While scheduled runs are failing there is exactly one open issue, and it is
@@ -394,13 +397,13 @@ address and confirm the pipeline carries it, and the events, into what it sends 
   problems. One known difficulty: a pipeline cannot write those secrets with the access it
   has by default, so it will need an extra credential. Planning must design for this.
 - **Facts about Slack.** Planning checked these against Slack's documentation on
-  2026-11-16 and found them documented: the credential for changing apps lasts 12 hours;
-  renewing it gives a replacement; the signing secret, client ID and client secret are
-  returned when an app is created; adding a permission requires the app to be installed
-  again; subscribed events need an address; an address must be verified by hand. Still
-  believed and not documented: a renewed credential's predecessor stops working; installing
-  an app cannot be done without a person; the permissions an installed app holds can be
-  read back. None has been tried. `research.md` lists each with what happens if it is
+  2026-11-16 and found them documented: a service token is long-lived and is not replaced
+  when used; the signing secret, client ID and client secret are returned when an app is
+  created; adding a permission requires the app to be installed again; subscribed events
+  need an address; an address must be verified by hand. Tried by the owner on 2026-11-16:
+  Slack's validation accepts a service token. Still believed and not documented: Slack's
+  other app definition methods accept one too; installing an app cannot be done without a
+  person; the permissions an installed app holds can be read back. `research.md` lists each with what happens if it is
   wrong.
 - **Branch runs can read the pipeline's credentials**, because asking Slack to validate
   needs them. Accepted while the project owner is the only person who can push to the

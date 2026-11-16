@@ -33,23 +33,27 @@ to Slack, because Slack does not accept events without an address. The permissio
 Do this once, on `main`. It takes the workspace from having no STRIDEr app to an installed
 app managed by the pipeline. Four steps are done by hand; the reason is given for each.
 
-1. **Create the credential for changing Slack apps. By hand:** Slack only issues it to a
+1. **Get the credential for changing Slack apps. By hand:** Slack only issues it to a
    signed-in person.
-   1. Open <https://api.slack.com/apps> and find **Your App Configuration Tokens**.
-   2. Select **Generate Token** and choose the `serverlessops` workspace.
-   3. Copy the **refresh token**, which starts with `xoxe-`. The access token is not needed.
-   4. Store it as the repository secret `SLACK_CONFIG_REFRESH_TOKEN`:
+   1. Install the Slack CLI if you do not have it. See
+      <https://docs.slack.dev/tools/slack-cli/>.
+   2. Run `slack auth token`. It prints a `/slackauthticket ...` command.
+   3. Paste that command into any message box in the `serverlessops` workspace and send
+      it. Slack shows a challenge code; type it into the terminal.
+   4. The CLI prints a **service token**. It is shown once and saved nowhere. Store it as
+      the repository secret `SLACK_SERVICE_TOKEN`:
 
       ```bash
-      gh secret set SLACK_CONFIG_REFRESH_TOKEN --repo ServerlessOpsIO/engineering-agents
+      gh secret set SLACK_SERVICE_TOKEN --repo ServerlessOpsIO/engineering-agents
       ```
 
-   This token belongs to you and can change every Slack app you own in the workspace. Slack
-   offers nothing narrower. The pipeline replaces it on every run, so the value you stored
-   stops working after the first run; that is expected.
+   The token belongs to you, does not expire, and can do anything the Slack CLI can do as
+   you, including changing every Slack app you own in the workspace. Treat it like a
+   password. The pipeline only reads it; nothing replaces or rewrites it.
 
 2. **Create the credential for storing values. By hand:** GitHub's built-in workflow token
-   cannot write secrets, and a token that can has to be issued by a person.
+   cannot write secrets, and a token that can has to be issued by a person. Only the
+   `create` action uses it, to store the new app's ID and secrets.
    1. In GitHub, open **Settings**, **Developer settings**, **Personal access tokens**,
       **Fine-grained tokens**, and generate a token.
    2. Resource owner: `ServerlessOpsIO`. Repository access: only `engineering-agents`.
@@ -152,16 +156,21 @@ The pipeline does not check that the address answers.
 
 | Credential | Access | Expires |
 | --- | --- | --- |
-| `SLACK_CONFIG_REFRESH_TOKEN` | Create and change your Slack apps in the workspace | Replaced on every run. Whether an unused one expires is not known; the daily run keeps it in use. |
+| `SLACK_SERVICE_TOKEN` | Anything the Slack CLI can do as you, including creating and changing your Slack apps | Never. Revoke it with `slack auth revoke --token <token>`. |
 | `SLACK_STORE_TOKEN` | Write this repository's secrets and variables | On the date you chose. |
 
-Branch runs can read both, because asking Slack to validate needs them. That is acceptable
+Branch runs can read `SLACK_SERVICE_TOKEN`, because asking Slack to validate needs it. Only
+the `create` job is given `SLACK_STORE_TOKEN`, though any workflow run in this repository
+could ask for it. That is acceptable
 while you are the only person who can push to this repository. If that changes, move the
 Slack validation step behind a GitHub environment limited to `main`.
 
-When `SLACK_STORE_TOKEN` has expired, runs fail with `store_failed` and the refresh token
-is lost with the first such run. Renew it before the date: generate a new token as in step
-2 of the first-time setup and store it.
+An expired `SLACK_STORE_TOKEN` does not affect everyday runs. It only matters the next time
+the `create` action is needed, which fails with `store_failed` until a new token is stored
+as in step 2 of the first-time setup.
+
+If the service token may have leaked, revoke it, get a new one as in step 1, and store it.
+Nothing else changes: the app and its values are untouched.
 
 ## Recovery
 
@@ -172,8 +181,8 @@ longer version.
 | --- | --- | --- | --- |
 | `invalid_definition` | The definition breaks Slack's schema, this project's rules, or Slack's validation. Nothing in Slack changed. | Fix the problems listed in the summary. | The check passes. |
 | `credential_missing` | A secret or variable is not set. Slack was not contacted. | Set the one named in the summary; see the first-time setup. | The run gets further. |
-| `credential_rejected` | Slack refused the refresh token. It was lost, used twice, or revoked. | Generate a new configuration token as in step 1 of the first-time setup and store its refresh token. | Runs pass again. Nothing else changes. |
-| `store_failed` | A value could not be written to GitHub. Any change already made in Slack stays. | Check `SLACK_STORE_TOKEN` and its expiry. Then, by which value the summary names: for `SLACK_CONFIG_REFRESH_TOKEN`, do as for `credential_rejected`; for an app value, see "A stored value was lost" below. | All values are stored. |
+| `credential_rejected` | Slack refused the service token. It was revoked, or is not the right kind of token. | Get a new service token as in step 1 of the first-time setup and store it. | Runs pass again. Nothing else changes. |
+| `store_failed` | A value could not be written to GitHub. Any change already made in Slack stays. | Check `SLACK_STORE_TOKEN` and its expiry, then see "A stored value was lost" below. | All values are stored. |
 | `app_not_recorded` | `SLACK_APP_ID` is not set. | Run the workflow with the action `create`. | The app exists and is recorded. |
 | `app_gone` | Slack says the recorded app does not exist. | See "The app was deleted" below. | A new app is recorded and installed. |
 | `app_exists` | The action `create` was run while the recorded app exists. Nothing was created. | Nothing. | Unchanged. |

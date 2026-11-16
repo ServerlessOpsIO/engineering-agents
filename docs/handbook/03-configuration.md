@@ -80,8 +80,8 @@ The `Slack app` workflow uses these repository-level GitHub values. None of them
 
 | Name | Kind | Written by | Read by |
 | --- | --- | --- | --- |
-| `SLACK_CONFIG_REFRESH_TOKEN` | Secret | You, once; then every run that contacts Slack | The `Slack app` workflow |
-| `SLACK_STORE_TOKEN` | Secret | You | The `Slack app` workflow |
+| `SLACK_SERVICE_TOKEN` | Secret | You | The `Slack app` workflow |
+| `SLACK_STORE_TOKEN` | Secret | You | The `create` job of the `Slack app` workflow |
 | `SLACK_APP_ID` | Variable | The creation run | The `Slack app` workflow; the later feature |
 | `SLACK_SIGNING_SECRET` | Secret | The creation run | The later feature |
 | `SLACK_CLIENT_ID` | Secret | The creation run | The later feature |

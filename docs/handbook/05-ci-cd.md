@@ -100,14 +100,20 @@ when `check` fails and `apply` is skipped.
 
 ### One run at a time
 
-Each job that contacts Slack renews the Slack credential, and the old one stops working. The
-workflow is therefore in one concurrency group, `slack-app`, that queues runs and cancels
-none in progress. GitHub keeps at most one run waiting in a group: if a third starts while
-one runs and one waits, the waiting one is cancelled in favour of the newest.
+The workflow is in one concurrency group, `slack-app`, that queues runs and cancels none in
+progress, so two updates to the app never overlap and the later one wins. GitHub keeps at
+most one run waiting in a group: if a third starts while one runs and one waits, the waiting
+one is cancelled in favour of the newest.
+
+### Credentials
+
+Jobs that contact Slack use `SLACK_SERVICE_TOKEN`, a Slack CLI service token that does not
+expire and is never rewritten. Only the `create` job writes to GitHub, using
+`SLACK_STORE_TOKEN`. See [Credentials and when they expire](08-slack-app.md#credentials-and-when-they-expire).
 
 ### Secrets in logs
 
-GitHub masks stored secrets in logs. Values obtained during a run, such as the renewed
-credential and a new app's signing secret, are masked by the program before anything else is
+GitHub masks stored secrets in logs. Values obtained during a run, such as a new
+app's signing secret, are masked by the program before anything else is
 printed. Run summaries and issues are built from a fixed list of messages and never from a
 response, because this repository's logs and issues are public.

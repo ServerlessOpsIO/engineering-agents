@@ -22,7 +22,7 @@ pipenv run test-unit
 ```
 
 Expected: all tests pass, including those for the offline check, the build with and
-without an address, credential renewal order, each app state, and each failure kind.
+without an address, each app state, and each failure kind.
 
 ## B. Offline check (US2, US5)
 
@@ -135,11 +135,11 @@ Expected: none found.
 
 ## Not validated here
 
-- SC-010 (ten runs in a row without renewing a credential by hand): met by the daily run
+- SC-010 (ten runs in a row without touching a credential): met by the daily run
   over the ten days after setup. Check the workflow's history then.
 - A deleted app (`app_gone`): covered by unit tests. Deleting the real app is destructive
   and is only tried if the owner chooses to.
-- A lost refresh token (`credential_rejected`): covered by unit tests and the handbook's
+- A refused service token (`credential_rejected`): covered by unit tests and the handbook's
   recovery steps.
 
 ## Results
@@ -149,9 +149,12 @@ contacted Slack or GitHub.**
 
 | Scenario | Result |
 |---|---|
-| A. Unit tests | Passed. 153 tests: 18 that existed before and 135 new. |
+| A. Unit tests | Passed. 147 tests after the move to a service token: 18 that existed before and 129 new. |
 | B. Offline check | Passed. The committed files exit 0 and the built manifest has no `event_subscriptions`. A scope with no comment, a `slash_commands` section, an unknown top-level field and an `http://` address each exit 1 with `invalid_definition` and name the place. With `https://example.com/slack/events` set, the built manifest has that address and the four events. Run in a scratch copy; the repository's files were not changed. |
 | K. Nothing on the cloud platform | `template.yaml`, `cfn-parameters.json`, `main.yml` and `branch.yml` are unchanged against `main`. The search for secrets has not been done; there are no runs or issues yet. |
 | C to J | Not run. They need the workflow on `main`, the Slack workspace and the repository's settings, and are the owner's tasks T028 to T030, T033 and T039 to T041. |
 
-The workflow file has only been parsed as YAML. It has never run.
+**2026-11-16, later.** The `Slack app` workflow ran once on the feature branch and passed;
+only `check` runs on a branch. The owner then ran `pipenv run slack-app validate` locally
+with a Slack CLI service token and it passed: Slack's validation accepts a service token
+and accepts the built manifest. `apply`, `create` and `report` have still never run.

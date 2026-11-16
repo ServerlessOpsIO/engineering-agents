@@ -61,8 +61,8 @@ Produced from the two files above each time it is needed; never committed.
 
 | Name | Kind | Secret | Written by | Read by | Notes |
 |---|---|---|---|---|---|
-| `SLACK_CONFIG_REFRESH_TOKEN` | Secret | Yes | Owner, once; then every job that contacts Slack | Jobs that contact Slack | The pipeline credential. Replaced on every use (FR-015). |
-| `SLACK_STORE_TOKEN` | Secret | Yes | Owner | Jobs that contact Slack | Fine-grained token for this repository with Secrets: write and Variables: write. Has an expiry date. |
+| `SLACK_SERVICE_TOKEN` | Secret | Yes | Owner | Jobs that contact Slack | The pipeline credential. A Slack CLI service token: does not expire and is never rewritten (FR-015). |
+| `SLACK_STORE_TOKEN` | Secret | Yes | Owner | The creation run only | Fine-grained token for this repository with Secrets: write and Variables: write. Has an expiry date. |
 | `SLACK_APP_ID` | Variable | No | Creation run | All Slack jobs; the later feature | Absent means no app is recorded. |
 | `SLACK_SIGNING_SECRET` | Secret | Yes | Creation run | The later feature | Issued once, when the app is created (FR-016). |
 | `SLACK_CLIENT_ID` | Secret | No, but stored as a secret at the owner's request | Creation run | The later feature | Issued once, when the app is created. |
@@ -115,8 +115,8 @@ Decision 10).
 |---|---|---|
 | `invalid_definition` | The offline check or Slack rejected the app definition | Fix the listed problems |
 | `credential_missing` | A needed secret or variable is not set | Which one, and where it comes from |
-| `credential_rejected` | Slack refused the refresh token | Issue a new configuration token and store its refresh token |
-| `store_failed` | A value could not be written to GitHub | Check `SLACK_STORE_TOKEN` and its expiry; if a refresh token was lost, do as for `credential_rejected` |
+| `credential_rejected` | Slack refused the service token | Get a new service token and store it |
+| `store_failed` | A value could not be written to GitHub | Check `SLACK_STORE_TOKEN` and its expiry, then store the value by hand |
 | `app_not_recorded` | No `SLACK_APP_ID` | Start the creation run |
 | `app_gone` | Slack does not know the recorded app | Start the creation run; reinstall; update everything that used the old values |
 | `app_exists` | Creation run started while the app exists | Nothing; creation refused |

@@ -13,8 +13,8 @@ reapplies it once a day, and creates the app only when the owner starts a run by
 The pipeline calls Slack's Manifest API directly through a small Python program in this
 repository; Terraform was compared and rejected (research, Decision 1). It lives in a new
 workflow file, so it cannot block or be blocked by the agent's build and deployment. The
-credential for changing Slack apps is a refresh token that is replaced on every use, so
-every run stores its replacement before doing anything else. The app ID, signing secret and
+credential for changing Slack apps is a Slack CLI service token, which does not expire and
+is only read by the pipeline (research, Decision 12, which replaced the original design). The app ID, signing secret and
 bot token, with the app's client ID and client secret, are kept as GitHub repository values for the later feature to read. No cloud
 resource is created and `template.yaml` is not touched.
 
@@ -44,10 +44,10 @@ expected to take about one minute.
 
 **Constraints**:
 
-- The refresh token is replaced each time it is used; the replacement must be stored in the
-  same run, and two runs must never renew at once (research, Decisions 2 and 4).
-- Writing a GitHub secret from a workflow needs a separate token, which itself expires
-  (research, Decision 3).
+- The service token is a permanent credential that acts as the owner; it must be stored
+  only as a repository secret and revoked if it may have leaked (research, Decision 12).
+- Writing a GitHub secret from a workflow needs a separate token, which itself expires. Only
+  the creation run needs it (research, Decision 3).
 - Slack rejects a manifest that lists events without an address, so events are held back
   until an address is supplied (research, Decision 7).
 - Installing the app, and later verifying the event address, need a person.
@@ -123,7 +123,7 @@ scripts/slack_app/
 ├── __main__.py                # New: commands check, validate, apply, create; exit codes;
 │                              #      run summary and failure kind output
 ├── definition.py              # New: read both files, offline check, build the manifest
-├── slack_api.py               # New: rotate, validate, export, update, create, auth.test;
+├── slack_api.py               # New: validate, export, update, create, auth.test;
 │                              #      maps Slack errors to failure kinds
 └── store.py                   # New: write GitHub secrets and variables through gh,
                                #      with retries; mask values in logs
@@ -132,7 +132,7 @@ tests/unit/
 ├── test_slack_definition.py   # New
 ├── test_slack_api.py          # New
 ├── test_slack_store.py        # New
-└── test_slack_commands.py     # New: order of renew-store-act; every app state;
+└── test_slack_commands.py     # New: every command and app state;
                                #      every failure kind
 
 .github/workflows/slack-app.yml   # New: jobs check, apply, create, report
@@ -171,7 +171,7 @@ with the other two faked. The existing workflows are left alone and a third is a
 | FR-011 | Separate workflow; failure kinds with next steps (data model) |
 | FR-012 | Separate workflow file; existing workflows not edited |
 | FR-013 | `apply` and `create` only run on `main` |
-| FR-014, FR-015 | Refresh token as a repository secret; renew-store-act order; concurrency group |
+| FR-014, FR-015 | Service token as a repository secret, read and never written; only `create` writes to GitHub |
 | FR-016 | `create` stores the app ID, signing secret, client ID and client secret |
 | FR-017 | Owner stores the bot token; handbook step |
 | FR-018 | Masking in `store.py`; fixed failure messages; unit test that no secret reaches output |

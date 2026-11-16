@@ -8,7 +8,7 @@ from slack_app import SlackAppError
 from slack_app.store import Store, mask
 
 STORE_TOKEN = "github_pat_store-token-value"
-SECRET_VALUE = "xoxe-new-refresh-token-value"
+SECRET_VALUE = "signing-secret-value"
 
 
 class FakeGh:
@@ -34,10 +34,10 @@ def make_store(gh, token=STORE_TOKEN, repository="ServerlessOpsIO/engineering-ag
 
 def test_a_secret_is_written_with_its_value_on_standard_input():
     gh = FakeGh()
-    make_store(gh).set_secret("SLACK_CONFIG_REFRESH_TOKEN", SECRET_VALUE)
+    make_store(gh).set_secret("SLACK_SIGNING_SECRET", SECRET_VALUE)
     run = gh.runs[0]
     assert run["command"] == [
-        "gh", "secret", "set", "SLACK_CONFIG_REFRESH_TOKEN",
+        "gh", "secret", "set", "SLACK_SIGNING_SECRET",
         "--repo", "ServerlessOpsIO/engineering-agents",
     ]
     assert run["input"] == SECRET_VALUE
@@ -66,10 +66,10 @@ def test_a_failed_write_is_retried():
 def test_a_write_that_keeps_failing_gives_up_after_three_attempts():
     gh = FakeGh(failures=99)
     with pytest.raises(SlackAppError) as raised:
-        make_store(gh).set_secret("SLACK_CONFIG_REFRESH_TOKEN", SECRET_VALUE)
+        make_store(gh).set_secret("SLACK_SIGNING_SECRET", SECRET_VALUE)
     assert len(gh.runs) == 3
     assert raised.value.kind == "store_failed"
-    assert raised.value.details == ["SLACK_CONFIG_REFRESH_TOKEN could not be written to GitHub"]
+    assert raised.value.details == ["SLACK_SIGNING_SECRET could not be written to GitHub"]
 
 
 def test_a_failed_write_does_not_repeat_what_gh_printed():

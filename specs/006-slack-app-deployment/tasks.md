@@ -115,7 +115,7 @@ takes the owner from nothing to an installed, managed app.
 - [X] T025 [US3] Add the `create` job to `.github/workflows/slack-app.yml`: `needs: check`; runs only on a hand start with `action: create` on `main`; same permission, job outputs and environment variables as `apply`; runs `pipenv run slack-app create`. Add `create` to the `needs` of the `report` job and treat its result the same way as `apply`'s
 - [X] T026 [US3] Write `docs/handbook/08-slack-app.md`: what the Slack app is and that STRIDEr does not answer yet; "First-time setup" as numbered steps, each marked as done by hand or by the pipeline with the reason (create a Slack app configuration token and store its refresh token as `SLACK_CONFIG_REFRESH_TOKEN`; create a fine-grained GitHub token for this repository with Secrets: write and Variables: write, store it as `SLACK_STORE_TOKEN` and note its expiry date; start the `Slack app` workflow with `action: create`; install the app from the link in the run summary; store the bot token as `SLACK_BOT_TOKEN`; start the workflow with `action: apply`); which GitHub notification setting must be on to be told of failed runs; that GitHub switches the daily run off after 60 days without repository activity and how to switch it back on
 - [X] T027 [US3] Add to `docs/handbook/08-slack-app.md`: "Changing the app" (edit `slack/manifest.yaml`, every scope and event needs a reason, branch check, merge); "Adding a permission" (the run fails with `reinstall_needed` until the app is installed again; how to reinstall; check the bot token); "Recovery", one entry per failure kind in `specs/006-slack-app-deployment/data-model.md` with the starting state, the steps and the end state, including a lost refresh token, an expired `SLACK_STORE_TOKEN`, a stored app value that was lost while the app still exists (where to read the signing secret, client ID, client secret and bot token again in the app's settings in Slack, and how to store them), and a deleted app (new app ID, signing secret and bot token; everything that used the old values must be updated)
-- [ ] T028 [US3] **(owner)** Do steps 1 and 2 of "First-time setup" in `docs/handbook/08-slack-app.md`: store `SLACK_CONFIG_REFRESH_TOKEN` and `SLACK_STORE_TOKEN` on `ServerlessOpsIO/engineering-agents`
+- [ ] T028 [US3] **(owner)** Do steps 1 and 2 of "First-time setup" in `docs/handbook/08-slack-app.md`: store `SLACK_SERVICE_TOKEN` and `SLACK_STORE_TOKEN` on `ServerlessOpsIO/engineering-agents`. `SLACK_SERVICE_TOKEN` was stored by the owner on 2026-11-16; `SLACK_STORE_TOKEN` is still to do
 - [ ] T029 [US3] **(owner)** After this branch is merged to `main`, run the rest of "First-time setup" in `docs/handbook/08-slack-app.md` as quickstart C describes, timing it, and record the result under "Results" in `specs/006-slack-app-deployment/quickstart.md`
 - [ ] T030 [US3] **(owner)** During T029, check the facts research left as believed and record each with the date in `specs/006-slack-app-deployment/research.md` ("Facts checked"): F12 (run `pipenv run slack-app check --output built.json`, add `"event_subscriptions": {"bot_events": ["app_mention"]}` under `settings` in a copy of that file, and send the copy to `apps.manifest.validate` with the app's ID; Slack should reject it for having events and no request URL); F14 (the `apply` run reports the installed scopes); F3 (the previous refresh token is refused); F15 (after quickstart H, whether the bot token changed). If F14 is false, stop and return FR-025 to the owner as research Decision 9 says
 
@@ -158,6 +158,20 @@ read them, and no secret is exposed.
 - [ ] T041 **(owner)** Ten days after T029, check the `Slack app` workflow's history for ten passing runs in a row with no credential renewed by hand (SC-010) and record the result in `specs/006-slack-app-deployment/quickstart.md`
 
 ---
+
+## Change after implementation: service token (2026-11-16)
+
+After T001 to T038 were done, the owner chose a Slack CLI service token in place of the
+rotating refresh token (research, Decision 12). The tasks above are left as they were
+written and done. Where they mention `rotate`, renewing, storing a new refresh token or
+`SLACK_CONFIG_REFRESH_TOKEN`, that code was then removed by the tasks below.
+
+- [X] T042 Replace the refresh token with `SLACK_SERVICE_TOKEN` in `scripts/slack_app/__main__.py`: remove renewing and storing, read the token and send it unchanged, and make `create` confirm `SLACK_STORE_TOKEN` is set before creating anything
+- [X] T043 Remove `rotate` from `scripts/slack_app/slack_api.py` and update the failure texts for `credential_rejected` and `store_failed` in `scripts/slack_app/__init__.py`
+- [X] T044 Update `tests/unit/test_slack_commands.py`, `tests/unit/test_slack_api.py` and `tests/unit/test_slack_store.py`: the service token is sent and never stored; `validate` and `apply` write nothing to GitHub; nothing is created when `SLACK_STORE_TOKEN` is missing
+- [X] T045 Update `.github/workflows/slack-app.yml`: `SLACK_SERVICE_TOKEN` in every job that contacts Slack; `SLACK_STORE_TOKEN` only in `create`
+- [X] T046 Update `docs/handbook/08-slack-app.md`, `03-configuration.md` and `05-ci-cd.md`, and `spec.md`, `plan.md`, `research.md`, `data-model.md`, `contracts/slack-app-pipeline.md` and `quickstart.md` in `specs/006-slack-app-deployment/`
+- [ ] T047 **(owner)** During T029, confirm that `create`, `apply` (which calls `export` and `update`) and the installed-permissions check all work with the service token, and record the result in `specs/006-slack-app-deployment/research.md` (Decision 12, "Checked")
 
 ## Dependencies & Execution Order
 

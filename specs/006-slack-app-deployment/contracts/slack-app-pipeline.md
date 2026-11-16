@@ -31,7 +31,8 @@ Slack (FR-009). A run started by hand from any branch other than `main` runs `ch
 | `create` | Yes | Creates an app | `contents: read` |
 | `report` | No | Never | `issues: write` |
 
-The workflow is in the concurrency group `slack-app`, which queues and never cancels.
+The workflow is in the concurrency group `slack-app`, which queues and never cancels, so
+two updates never overlap and the later one wins.
 
 `check`, `apply` and `create` each expose two job outputs taken from the command:
 `failure_kind` and `failure_help`.
@@ -59,18 +60,18 @@ needs `check`, `apply` and `create`, runs with `if: always()`, and only on `main
 | Command | Reads | Does | Writes |
 |---|---|---|---|
 | `check` | The two files in `slack/` | Offline check; builds the manifest | Nothing. `--output FILE` writes the built manifest. |
-| `validate` | Files; `SLACK_CONFIG_REFRESH_TOKEN`; `SLACK_APP_ID` if set | Renews the credential; asks Slack to validate the built manifest | `SLACK_CONFIG_REFRESH_TOKEN` |
-| `apply` | Files; `SLACK_CONFIG_REFRESH_TOKEN`; `SLACK_APP_ID`; `SLACK_BOT_TOKEN` if set | Renews the credential; confirms the app exists; updates it; checks installed scopes | `SLACK_CONFIG_REFRESH_TOKEN` |
-| `create` | Files; `SLACK_CONFIG_REFRESH_TOKEN`; `SLACK_APP_ID` if set | Renews the credential; refuses if the recorded app exists; creates the app | `SLACK_CONFIG_REFRESH_TOKEN`, `SLACK_APP_ID`, `SLACK_SIGNING_SECRET`, `SLACK_CLIENT_ID`, `SLACK_CLIENT_SECRET` |
+| `validate` | Files; `SLACK_SERVICE_TOKEN`; `SLACK_APP_ID` if set | Asks Slack to validate the built manifest | Nothing |
+| `apply` | Files; `SLACK_SERVICE_TOKEN`; `SLACK_APP_ID`; `SLACK_BOT_TOKEN` if set | Confirms the app exists; updates it; checks installed scopes | Nothing |
+| `create` | Files; `SLACK_SERVICE_TOKEN`; `SLACK_STORE_TOKEN`; `SLACK_APP_ID` if set | Refuses if the recorded app exists; creates the app | `SLACK_APP_ID`, `SLACK_SIGNING_SECRET`, `SLACK_CLIENT_ID`, `SLACK_CLIENT_SECRET` |
 
-Inputs come from environment variables with the names above, plus `SLACK_STORE_TOKEN` and
-`GITHUB_REPOSITORY` for writing.
+Inputs come from environment variables with the names above, plus `GITHUB_REPOSITORY` for
+`create`.
 
 ### Order inside every command that contacts Slack
 
 1. Run the offline check. Stop on failure; Slack is not contacted.
-2. Renew the credential.
-3. Store the new refresh token. Stop on failure.
+2. Read `SLACK_SERVICE_TOKEN`. It is sent to Slack as it is and is never written anywhere.
+3. For `create` only: confirm `SLACK_STORE_TOKEN` is set before creating anything.
 4. Everything else.
 
 ### Exit codes
@@ -81,7 +82,7 @@ Inputs come from environment variables with the names above, plus `SLACK_STORE_T
 | 1 | Failed. One failure kind from `data-model.md` is reported. |
 | 2 | Wrong usage. |
 
-`validate` on a run with no `SLACK_CONFIG_REFRESH_TOKEN` exits 0 after printing that Slack
+`validate` on a run with no `SLACK_SERVICE_TOKEN` exits 0 after printing that Slack
 validation was skipped.
 
 ### Output

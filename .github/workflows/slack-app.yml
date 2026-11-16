@@ -27,8 +27,8 @@ on:
     # Once a day. Undoes changes made to the app outside this pipeline.
     - cron: '17 6 * * *'
 
-# Every job renews the Slack credential, and a refresh token works once. Runs
-# must not overlap, so they queue. Nothing is cancelled.
+# Runs queue so that two updates to the app never overlap and the later one
+# wins. Nothing is cancelled.
 concurrency:
   group: slack-app
   cancel-in-progress: false
@@ -61,8 +61,7 @@ jobs:
       - name: Validate with Slack
         id: validate
         env:
-          SLACK_CONFIG_REFRESH_TOKEN: ${{ secrets.SLACK_CONFIG_REFRESH_TOKEN }}
-          SLACK_STORE_TOKEN: ${{ secrets.SLACK_STORE_TOKEN }}
+          SLACK_SERVICE_TOKEN: ${{ secrets.SLACK_SERVICE_TOKEN }}
           SLACK_APP_ID: ${{ vars.SLACK_APP_ID }}
         run: pipenv run slack-app validate
 
@@ -91,8 +90,7 @@ jobs:
       - name: Apply the app definition
         id: apply
         env:
-          SLACK_CONFIG_REFRESH_TOKEN: ${{ secrets.SLACK_CONFIG_REFRESH_TOKEN }}
-          SLACK_STORE_TOKEN: ${{ secrets.SLACK_STORE_TOKEN }}
+          SLACK_SERVICE_TOKEN: ${{ secrets.SLACK_SERVICE_TOKEN }}
           SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
           SLACK_APP_ID: ${{ vars.SLACK_APP_ID }}
         run: pipenv run slack-app apply
@@ -119,7 +117,8 @@ jobs:
       - name: Create the Slack app
         id: create
         env:
-          SLACK_CONFIG_REFRESH_TOKEN: ${{ secrets.SLACK_CONFIG_REFRESH_TOKEN }}
+          SLACK_SERVICE_TOKEN: ${{ secrets.SLACK_SERVICE_TOKEN }}
+          # Only this job writes to GitHub: the new app's ID and secrets.
           SLACK_STORE_TOKEN: ${{ secrets.SLACK_STORE_TOKEN }}
           SLACK_APP_ID: ${{ vars.SLACK_APP_ID }}
         run: pipenv run slack-app create
