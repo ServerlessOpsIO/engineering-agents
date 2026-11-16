@@ -5,6 +5,7 @@ errors carry a failure kind and Slack's error code, nothing else.
 """
 
 import json
+import uuid
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -40,6 +41,23 @@ def _http(url, headers, body):
         return error.code, {}, b""
     except (urllib.error.URLError, TimeoutError, OSError):
         raise SlackAppError("slack_unavailable", ["Slack could not be reached"]) from None
+
+
+def _multipart(params, file):
+    """Return (content type, body) for a form with fields and one file."""
+    field, file_name, file_type, data = file
+    boundary = uuid.uuid4().hex
+    parts = [
+        f'--{boundary}\r\nContent-Disposition: form-data; name="{field}"; '
+        f'filename="{file_name}"\r\nContent-Type: {file_type}\r\n\r\n'.encode() + data + b"\r\n"
+    ]
+    for name, value in params.items():
+        parts.append(
+            f'--{boundary}\r\nContent-Disposition: form-data; name="{name}"\r\n\r\n'
+            f"{value}\r\n".encode()
+        )
+    parts.append(f"--{boundary}--\r\n".encode())
+    return f"multipart/form-data; boundary={boundary}", b"".join(parts)
 
 
 def failure(method, answer, refused_kind="credential_rejected"):
@@ -83,11 +101,16 @@ class SlackApi:
     def __init__(self, transport=_http):
         self._transport = transport
 
-    def _call(self, method, token, params, refused_kind):
-        headers = {"Content-Type": "application/x-www-form-urlencoded; charset=utf-8"}
+    def _call(self, method, token, params, refused_kind, file=None):
+        """`file` is (field name, file name, content type, bytes) for an upload."""
+        if file is None:
+            content_type = "application/x-www-form-urlencoded; charset=utf-8"
+            body = urllib.parse.urlencode(params).encode()
+        else:
+            content_type, body = _multipart(params, file)
+        headers = {"Content-Type": content_type}
         if token:
             headers["Authorization"] = f"Bearer {token}"
-        body = urllib.parse.urlencode(params).encode()
         status, response_headers, raw = self._transport(API + method, headers, body)
 
         if status == 429 or status >= 500:
@@ -128,6 +151,13 @@ class SlackApi:
             "apps.manifest.create", token, {"manifest": manifest_json}, "credential_rejected"
         )
         return answer
+
+    def set_icon(self, token, app_id, file_name, content_type, data):
+        """Set the app's icon. The method is the one the Slack CLI uses; Slack does not document it."""
+        self._call(
+            "apps.icon.set", token, {"app_id": app_id}, "credential_rejected",
+            file=("file", file_name, content_type, data),
+        )
 
     def auth_test_scopes(self, bot_token):
         """Return the set of scopes the bot token holds."""

@@ -54,6 +54,7 @@ once the Slack app does, so the Slack app is created and deployed on its own fir
 - Q: What should happen when Slack refuses the stored bot token? → A: The run fails saying the stored bot token is no longer valid, and does not report it as a missing permission.
 - Q: Where else must secrets never appear, given the repository is public? → A: In issues and pull requests. The hosting service masks stored secrets in pipeline logs.
 - Q: Should the pipeline keep using a short-lived credential that is replaced on every run and has to be written back each time, or a Slack CLI service token that does not expire? → A: A service token. The owner prefers one long-lived credential that the pipeline only reads over one that every run must replace and store. The owner confirmed on 2026-11-16 that Slack's validation accepts it.
+- Q: Should the app's icon also be kept in the repository and set by the pipeline? → A: Yes. The icon is an image file beside the app definition, and the pipeline sets it whenever it updates the app.
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -237,7 +238,8 @@ address and confirm the pipeline carries it, and the events, into what it sends 
 
 - **FR-001**: The repository MUST contain one app definition that is the single source of
   truth for the STRIDEr Slack app's name, description, bot user, permissions and the events
-  it subscribes to.
+  it subscribes to. The app's icon is an image file kept beside it and is set by the
+  pipeline whenever it updates the app.
 - **FR-002**: The app definition MUST let people reach STRIDEr by mentioning it in a
   channel, by replying in a thread it is part of, with or without mentioning it, and by
   direct message.

@@ -6,6 +6,7 @@ validate and update the app:
     pipenv run slack-app check [--output FILE] [--payload FILE]
     pipenv run slack-app prepare --payload FILE
     pipenv run slack-app result --method METHOD
+    pipenv run slack-app icon
     pipenv run slack-app verify
     pipenv run slack-app create [--existence-from-action]
 
@@ -28,6 +29,7 @@ if __package__ in (None, ""):
     sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from slack_app import FAILURE_HELP, SlackAppError, definition  # noqa: E402
+from slack_app import icon as app_icon  # noqa: E402
 from slack_app.slack_api import SlackApi, failure  # noqa: E402
 from slack_app.store import Store, mask  # noqa: E402
 
@@ -175,8 +177,21 @@ def _verify_installed(context, built):
     context.note("The installed app holds every permission in the app definition.")
 
 
+def _set_icon(context, token, app_id):
+    """Upload the icon in slack/, when the project has one."""
+    found = app_icon.check(context.root)
+    if found is None:
+        context.note("The project has no icon in slack/, so the app's icon was left alone.")
+        return
+    path, content_type, data = found
+    context.api.set_icon(token, app_id, path.name, content_type, data)
+    context.note(f"The app's icon was set from slack/{path.name}.")
+
+
 def check(context, args):
     built = definition.check(context.root)
+    if app_icon.check(context.root) is not None:
+        context.note("The icon passed the offline check.")
     if getattr(args, "output", None):
         Path(args.output).write_text(definition.to_json(built))
         context.note(f"The built manifest was written to {args.output}.")
@@ -217,6 +232,15 @@ def result(context, args):
             _note_drift(context, exported, definition.check(context.root))
 
 
+def icon(context, args):
+    """Set the app's icon. Slack's GitHub Action cannot upload a file, so this calls Slack."""
+    definition.check(context.root)
+    app_id = context.env.get(APP_ID)
+    if not app_id:
+        raise SlackAppError("app_not_recorded", [f"{APP_ID} is not set"])
+    _set_icon(context, _service_token(context), app_id)
+
+
 def verify(context, args):
     """After the app is updated: check the installed app's permissions."""
     _verify_installed(context, definition.check(context.root))
@@ -240,6 +264,7 @@ def apply(context, args):
     token, app_id = _confirm_app(context, built)
     context.api.update(token, app_id, definition.to_json(built))
     context.note(f"The Slack app {app_id} now matches the app definition.")
+    _set_icon(context, token, app_id)
     _verify_installed(context, built)
 
 
@@ -295,7 +320,7 @@ def create(context, args):
 
 
 COMMANDS = {
-    "check": check, "prepare": prepare, "result": result, "verify": verify,
+    "check": check, "prepare": prepare, "result": result, "icon": icon, "verify": verify,
     "validate": validate, "apply": apply, "create": create,
 }
 
@@ -339,6 +364,7 @@ def main(argv=None, env=None, api=None, store=None, root=".", out=print):
     commands.add_parser(
         "result", help="turn the answer Slack's GitHub Action got into a pass or a failure"
     ).add_argument("--method", required=True, help="the Slack method the action called")
+    commands.add_parser("icon", help="set the app's icon from the image in slack/")
     commands.add_parser("verify", help="check the installed app's permissions")
     commands.add_parser("validate", help="by hand: check, then ask Slack to validate")
     commands.add_parser(

@@ -93,7 +93,7 @@ any other change.
 | Job | What it does | Changes Slack |
 | --- | --- | --- |
 | `check` | Checks the app definition offline, then asks Slack to validate it. The Slack steps are skipped when the credential is not available. | Never |
-| `apply` | Asks Slack for the recorded app to confirm it exists, updates it to match the definition, then fails if the installed app lacks a permission in it. | Updates the app |
+| `apply` | Asks Slack for the recorded app to confirm it exists, updates it to match the definition, sets its icon, then fails if the installed app lacks a permission in it. | Updates the app |
 | `create` | Creates the app and stores its values. Refuses while the recorded app exists. | Creates an app |
 | `report` | After a failed scheduled run, opens an issue labelled `slack-app-failure` or comments on the open one. After `apply` or `create` passes, closes it. | Never |
 
@@ -111,6 +111,7 @@ The two everyday calls, validating and updating, are made by Slack's own GitHub 
 | Offline check; build the request | Program (`check`, `prepare`) | Slack's schema, this project's rules, and holding events back until there is an address. |
 | `apps.manifest.validate`, `apps.manifest.export`, `apps.manifest.update` | Slack's action | |
 | Read Slack's answer | Program (`result`; `create` for its own check) | Turns the answer into one failure kind with what to do, which also feeds the failure issue. For `export` it tells a deleted app apart from an outage, so nothing recreates an app by mistake. |
+| Set the app's icon | Program (`icon`) | The action cannot upload a file. |
 | Check installed permissions | Program (`verify`) | Needs a response header the action does not return. |
 | `apps.manifest.create`, and storing the app's values | Program (`create`) | Slack's answer holds the app's secrets, and the action would expose the whole answer as a step output. The check before it, whether the recorded app still exists, goes through the action. |
 

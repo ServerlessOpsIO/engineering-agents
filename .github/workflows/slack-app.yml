@@ -100,8 +100,8 @@ jobs:
       )
     runs-on: ubuntu-latest
     outputs:
-      failure_kind: ${{ steps.verify.outputs.failure_kind || steps.result.outputs.failure_kind || steps.exists.outputs.failure_kind || steps.prepare.outputs.failure_kind }}
-      failure_help: ${{ steps.verify.outputs.failure_help || steps.result.outputs.failure_help || steps.exists.outputs.failure_help || steps.prepare.outputs.failure_help }}
+      failure_kind: ${{ steps.verify.outputs.failure_kind || steps.icon.outputs.failure_kind || steps.result.outputs.failure_kind || steps.exists.outputs.failure_kind || steps.prepare.outputs.failure_kind }}
+      failure_help: ${{ steps.verify.outputs.failure_help || steps.icon.outputs.failure_help || steps.result.outputs.failure_help || steps.exists.outputs.failure_help || steps.prepare.outputs.failure_help }}
 
     steps:
       - name: Setup job workspace
@@ -162,6 +162,15 @@ jobs:
           SLACK_ACTION_CODE: ${{ fromJSON(steps.slack.outputs.response || '{}').code }}
           SLACK_ACTION_RETRY_AFTER: ${{ fromJSON(steps.slack.outputs.response || '{}').retryAfter }}
         run: pipenv run slack-app result --method apps.manifest.update
+
+      # Uploads slack/icon.jpg or slack/icon.png. The program does this itself:
+      # Slack's action cannot upload a file.
+      - name: Set the app's icon
+        id: icon
+        env:
+          SLACK_SERVICE_TOKEN: ${{ secrets.SLACK_SERVICE_TOKEN }}
+          SLACK_APP_ID: ${{ vars.SLACK_APP_ID }}
+        run: pipenv run slack-app icon
 
       # Fails when the installed app lacks a permission the definition has.
       - name: Check the installed app's permissions

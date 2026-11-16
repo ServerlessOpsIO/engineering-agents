@@ -18,6 +18,7 @@ first real test of the pipeline; record what happens in
 | --- | --- |
 | `slack/manifest.yaml` | The app definition: name, bot user, permissions and events. The single source of truth. |
 | `slack/settings.json` | The event delivery address, `event_request_url`. Empty for now. |
+| `slack/icon.jpg` | The app's icon. Optional; `slack/icon.png` works too. |
 | `slack/manifest.schema.json` | A copy of Slack's published schema for app definitions, used by the check. |
 | `scripts/slack_app/` | The program the pipeline runs around Slack's GitHub Action: `pipenv run slack-app <command>`. |
 | `.github/workflows/slack-app.yml` | The `Slack app` workflow. See [CI/CD pipeline](05-ci-cd.md#the-slack-app-workflow). |
@@ -140,6 +141,21 @@ and writes the new app's values to GitHub, not to your machine.
 Slash commands, shortcuts, the home tab, Socket Mode and user permissions are not allowed
 by the check. Changing that is a change to the project's requirements, not only to the
 file.
+
+## Changing the icon
+
+The icon is `slack/icon.jpg` or `slack/icon.png`; keep only one. It must be a square PNG or
+JPEG between 512 and 2,000 pixels on each side. `pipenv run slack-app check` checks this.
+
+Replace the file and merge to `main`. The `apply` job uploads it every time it runs, so an
+icon changed in the Slack console is also put back within a day. With no icon file, the
+app's icon is left alone.
+
+Setting the icon uses a Slack method, `apps.icon.set`, that Slack does not document; it is
+the one the Slack CLI uses. If Slack changes it, the "Set the app's icon" step fails with
+`unexpected` and names Slack's error. The rest of the run is not affected, except that the
+permissions check after it does not run; set the icon by hand under **Basic Information**,
+**Display Information**, and remove the icon file until the step is fixed.
 
 ## Adding a permission
 

@@ -71,7 +71,7 @@ Steps in `check`: `check --payload`, the action, `result`. The last two are skip
 Steps in `apply`: `prepare --payload` (contacts nothing); the action calling
 `apps.manifest.export`; `result --method apps.manifest.export`, which is also given the
 returned manifest (`SLACK_ACTION_MANIFEST`), since it holds no secrets; the action calling
-`apps.manifest.update`; `result --method apps.manifest.update`; `verify`.
+`apps.manifest.update`; `result --method apps.manifest.update`; `icon`; `verify`.
 
 Steps in `create`: the action calling `apps.manifest.export`, only when `SLACK_APP_ID` is
 set; then `create --existence-from-action`, which reads that answer, refuses when the app
@@ -85,6 +85,7 @@ exists, and otherwise calls `apps.manifest.create` itself and stores the app's v
 | `check --payload FILE` | Files; `SLACK_APP_ID` if set | Offline check; writes the request for the action: `{"manifest": "<the built manifest as text>", "app_id": "<if set>"}` | The request file |
 | `prepare --payload FILE` | Files; `SLACK_SERVICE_TOKEN` (only to confirm it is set); `SLACK_APP_ID` | Offline check; fails when no app is recorded; writes the request. Contacts nothing | The request file |
 | `result --method METHOD` | `SLACK_ACTION_OK`, `SLACK_ACTION_ERROR`, `SLACK_ACTION_ERRORS`, `SLACK_ACTION_STATUS`, `SLACK_ACTION_CODE`, `SLACK_ACTION_RETRY_AFTER` | Passes when Slack accepted the call; otherwise fails with one failure kind. For `apps.manifest.export`, also reads `SLACK_ACTION_MANIFEST` and notes when the app had drifted from the definition | Nothing |
+| `icon` | Files; `SLACK_SERVICE_TOKEN`; `SLACK_APP_ID` | Uploads `slack/icon.jpg` or `slack/icon.png` with `apps.icon.set`; passes with a note when there is no icon | Nothing |
 | `verify` | Files; `SLACK_BOT_TOKEN` if set | Checks the installed app's scopes | Nothing |
 | `validate` (by hand) | Files; `SLACK_SERVICE_TOKEN`; `SLACK_APP_ID` if set | Asks Slack to validate the built manifest | Nothing |
 | `apply` (by hand) | Files; `SLACK_SERVICE_TOKEN`; `SLACK_APP_ID`; `SLACK_BOT_TOKEN` if set | Confirms the app exists; updates it; checks installed scopes | Nothing |
@@ -133,7 +134,9 @@ Fails with `invalid_definition` when any of these does not hold:
 - none of the forbidden sections is present (FR-004);
 - `settings.socket_mode_enabled` is not `true` (FR-005);
 - `settings.event_subscriptions.request_url` is not in the app definition;
-- `event_request_url` in `slack/settings.json` is empty or a valid `https://` address.
+- `event_request_url` in `slack/settings.json` is empty or a valid `https://` address;
+- the icon, when there is one, is a single PNG or JPEG file, square, between 512 and 2,000
+  pixels on each side, and named for its format.
 
 ## 3. What the later feature may rely on
 

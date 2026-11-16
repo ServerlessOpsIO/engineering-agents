@@ -46,6 +46,11 @@ that the check needs no network and does not change when Slack's copy does. It c
 structure, types, lengths and unknown fields. It does not know which scope or event names
 are real; only Slack does.
 
+### Icon: `slack/icon.jpg` or `slack/icon.png`
+
+Optional. At most one of the two. A square PNG or JPEG, each side between 512 and 2,000
+pixels. It is not part of the manifest: Slack takes an app's icon through a separate call.
+
 ### Built manifest (not stored)
 
 Produced from the two files above each time it is needed; never committed.

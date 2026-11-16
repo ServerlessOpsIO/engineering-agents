@@ -71,6 +71,10 @@ class FakeSlack:
             "oauth_authorize_url": f"https://slack.com/oauth/v2/authorize?client_id={CLIENT_ID}",
         }
 
+    def set_icon(self, token, app_id, file_name, content_type, data):
+        self._do("set_icon")
+        self.sent["icon"] = (app_id, file_name, content_type, len(data))
+
     def auth_test_scopes(self, bot_token):
         self._do("auth_test")
         return self.scopes
@@ -306,7 +310,7 @@ def test_apply_to_an_app_that_is_not_installed_updates_and_passes(run):
 
 def test_apply_to_an_installed_app_in_step_updates_and_passes(run):
     assert run("apply").code == 0
-    assert run.log == ["export", "update", "auth_test"]
+    assert run.log == ["export", "update", "set_icon", "auth_test"]
     assert run.slack.sent["manifest"]["display_information"]["name"] == "STRIDEr"
     assert "holds every permission" in run.summary
 
@@ -565,6 +569,59 @@ def test_verify_reports_a_refused_bot_token_as_itself(run):
     assert run.kind == "bot_token_rejected"
 
 
+# the icon
+
+def test_icon_uploads_the_image_in_the_slack_directory(run):
+    assert run("icon").code == 0
+    assert run.log == ["set_icon"]
+    app_id, file_name, content_type, size = run.slack.sent["icon"]
+    assert (app_id, file_name, content_type) == ("A0OLD", "icon.jpg", "image/jpeg")
+    assert size == (run.root / "slack" / "icon.jpg").stat().st_size
+    assert "The app's icon was set from slack/icon.jpg" in run.summary
+
+
+def test_icon_leaves_the_app_alone_when_the_project_has_no_icon(run):
+    (run.root / "slack" / "icon.jpg").unlink()
+    assert run("icon").code == 0
+    assert run.log == []
+    assert "has no icon" in run.summary
+
+
+def test_icon_with_no_app_recorded_fails(run):
+    run.env.pop("SLACK_APP_ID")
+    assert run("icon").code == 1
+    assert run.kind == "app_not_recorded"
+    assert run.log == []
+
+
+def test_icon_reports_a_bad_image_without_contacting_slack(run):
+    (run.root / "slack" / "icon.jpg").write_bytes(b"not an image")
+    assert run("icon").code == 1
+    assert run.kind == "invalid_definition"
+    assert "slack/icon.jpg: is not a PNG or JPEG image" in run.summary
+    assert run.log == []
+
+
+@pytest.mark.parametrize("kind", ["credential_rejected", "slack_unavailable", "unexpected"])
+def test_icon_reports_why_slack_did_not_take_it(run, kind):
+    run.slack.fail["set_icon"] = SlackAppError(kind, ["apps.icon.set: x"])
+    assert run("icon").code == 1
+    assert run.kind == kind
+
+
+def test_check_also_checks_the_icon(run):
+    (run.root / "slack" / "icon.jpg").write_bytes(b"not an image")
+    assert run("check").code == 1
+    assert run.kind == "invalid_definition"
+
+
+def test_apply_by_hand_sets_the_icon_before_checking_permissions(run):
+    run.slack.scopes = set()
+    assert run("apply").code == 1
+    assert run.kind == "reinstall_needed"
+    assert "set_icon" in run.log
+
+
 # create
 
 def test_create_with_no_app_recorded_creates_and_stores_the_apps_values(run):
@@ -634,6 +691,7 @@ def test_create_says_which_app_was_made_when_a_value_cannot_be_stored(run, name)
     ("validate", lambda run: None),
     ("prepare", lambda run: None),
     ("verify", lambda run: setattr(run.slack, "scopes", set())),
+    ("icon", lambda run: None),
     ("apply", lambda run: None),
     ("apply", lambda run: setattr(run.slack, "scopes", set())),
     ("create", lambda run: run.env.pop("SLACK_APP_ID")),
