@@ -185,6 +185,13 @@ The owner then chose to have Slack's official action make the validate and updat
 - [X] T052 Update `docs/handbook/05-ci-cd.md` and `08-slack-app.md`, and `plan.md`, `research.md` and `contracts/slack-app-pipeline.md` in `specs/006-slack-app-deployment/`
 - [ ] T053 **(owner)** After pushing, confirm the `check` job's "Validate with Slack" and "Read Slack's answer" steps pass on the branch; after merging, confirm the same for `apply`. Record both in `specs/006-slack-app-deployment/quickstart.md`
 
+## Change after merging: the app-exists check through Slack's GitHub Action (2026-11-16)
+
+- [X] T054 In `scripts/slack_app/__main__.py`: `prepare` no longer contacts Slack (offline check, fail when no app is recorded or no service token is set, write the request); `result --method apps.manifest.export` reads the returned manifest from `SLACK_ACTION_MANIFEST` and notes drift; `create --existence-from-action` reads the action's answer and refuses, replaces or stops accordingly. `validate`, `apply` and `create` without the option still ask Slack themselves when run by hand
+- [X] T055 Add tests for T054 to `tests/unit/test_slack_commands.py`
+- [X] T056 In `.github/workflows/slack-app.yml`, add an `apps.manifest.export` call through `slackapi/slack-github-action` to `apply`, followed by `slack-app result`, and to `create` when `SLACK_APP_ID` is set, followed by `slack-app create --existence-from-action`
+- [X] T057 Update `docs/handbook/05-ci-cd.md`, and `research.md` and `contracts/slack-app-pipeline.md` in `specs/006-slack-app-deployment/`
+
 ## Dependencies & Execution Order
 
 ### Phase dependencies

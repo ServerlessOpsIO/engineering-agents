@@ -370,12 +370,10 @@ def test_check_leaves_the_app_id_out_of_the_request_before_an_app_is_recorded(ru
     assert set(json.loads(target.read_text())) == {"manifest"}
 
 
-def test_prepare_confirms_the_app_exists_and_writes_the_request_without_changing_slack(
-    run, tmp_path
-):
+def test_prepare_writes_the_request_and_contacts_nothing(run, tmp_path):
     target = tmp_path / "payload.json"
     assert run("prepare", "--payload", str(target)).code == 0
-    assert run.log == ["export"]
+    assert run.log == []
     payload = json.loads(target.read_text())
     assert payload["app_id"] == "A0OLD"
     assert "event_subscriptions" not in json.loads(payload["manifest"])["settings"]
@@ -389,24 +387,20 @@ def test_prepare_with_no_app_recorded_fails_and_writes_no_request(run, tmp_path)
     assert not target.exists()
 
 
-@pytest.mark.parametrize("kind", ["app_gone", "slack_unavailable", "credential_rejected"])
-def test_prepare_stops_the_update_when_the_app_cannot_be_confirmed(run, tmp_path, kind):
-    run.slack.fail["export"] = SlackAppError(kind, ["apps.manifest.export: x"])
+def test_prepare_with_no_service_token_fails_before_the_action_would(run, tmp_path):
+    run.env.pop("SLACK_SERVICE_TOKEN")
     target = tmp_path / "payload.json"
     assert run("prepare", "--payload", str(target)).code == 1
-    assert run.kind == kind
+    assert run.kind == "credential_missing"
     assert not target.exists()
 
 
-def test_prepare_says_when_a_change_made_outside_the_pipeline_is_being_undone(run, tmp_path):
-    run.slack.exported = {"display_information": {"name": "Renamed by hand"}}
-    assert run("prepare", "--payload", str(tmp_path / "p.json")).code == 0
-    assert "A change made outside the pipeline is being undone" in run.summary
-
-
-def action_answer(run, ok, error="", errors=None, status="", code="", retry_after=""):
+def action_answer(
+    run, ok, error="", errors=None, status="", code="", retry_after="", manifest=None
+):
     """Set what the workflow passes on from the outputs of Slack's GitHub Action."""
     run.env.update({
+        "SLACK_ACTION_MANIFEST": "null" if manifest is None else json.dumps(manifest),
         "SLACK_ACTION_OK": ok,
         "SLACK_ACTION_ERROR": error,
         "SLACK_ACTION_ERRORS": "null" if errors is None else json.dumps(errors),
@@ -461,6 +455,89 @@ def test_result_does_not_trust_ok_when_slack_also_named_an_error(run):
     action_answer(run, "true", "invalid_auth")
     assert run("result", "--method", "apps.manifest.update").code == 1
     assert run.kind == "credential_rejected"
+
+
+# reading the answer to "does the recorded app exist?"
+
+def test_result_passes_when_the_recorded_app_exists(run):
+    action_answer(run, "true", manifest={"_slack_default": True})
+    assert run("result", "--method", "apps.manifest.export").code == 0
+    assert run.log == []
+
+
+def test_result_reports_a_deleted_app_and_how_to_replace_it(run):
+    action_answer(run, "false", "app_not_found")
+    assert run("result", "--method", "apps.manifest.export").code == 1
+    assert run.kind == "app_gone"
+    assert "action 'create'" in run.outputs["failure_help"]
+
+
+@pytest.mark.parametrize("answer, kind", [
+    ({"error": "service_unavailable"}, "slack_unavailable"),
+    ({"status": "503"}, "slack_unavailable"),
+    ({"error": "invalid_auth"}, "credential_rejected"),
+    ({}, "unexpected"),
+])
+def test_result_never_reports_an_outage_or_a_refused_credential_as_a_deleted_app(
+    run, answer, kind
+):
+    action_answer(run, "false", **answer)
+    assert run("result", "--method", "apps.manifest.export").code == 1
+    assert run.kind == kind
+
+
+def test_result_says_when_a_change_made_outside_the_pipeline_is_being_undone(run):
+    action_answer(run, "true", manifest={"display_information": {"name": "Renamed by hand"}})
+    assert run("result", "--method", "apps.manifest.export").code == 0
+    assert "A change made outside the pipeline is being undone" in run.summary
+
+
+def test_result_does_not_call_slacks_added_defaults_a_change(run):
+    exported = json.loads(json.dumps(cli.definition.check(run.root)))
+    exported["display_information"]["background_color"] = "#000000"
+    action_answer(run, "true", manifest=exported)
+    assert run("result", "--method", "apps.manifest.export").code == 0
+    assert "outside the pipeline" not in run.summary
+
+
+def test_result_passes_without_a_manifest_to_compare(run):
+    action_answer(run, "true")
+    assert run("result", "--method", "apps.manifest.export").code == 0
+
+
+# create, when Slack's GitHub Action has asked whether the recorded app exists
+
+def test_create_refuses_when_the_action_found_the_recorded_app(run):
+    action_answer(run, "true", manifest={"_slack_default": True})
+    assert run("create", "--existence-from-action").code == 1
+    assert run.kind == "app_exists"
+    assert run.log == []
+
+
+def test_create_replaces_the_app_when_the_action_found_it_gone(run):
+    action_answer(run, "false", "app_not_found")
+    assert run("create", "--existence-from-action").code == 0
+    assert "export" not in run.log and "create" in run.log
+    assert run.store.variables == {"SLACK_APP_ID": "A0NEW"}
+
+
+@pytest.mark.parametrize("answer, kind", [
+    ({"error": "service_unavailable"}, "slack_unavailable"),
+    ({"error": "invalid_auth"}, "credential_rejected"),
+    ({"status": "503"}, "slack_unavailable"),
+    ({}, "unexpected"),
+])
+def test_create_does_not_create_when_the_action_could_not_tell(run, answer, kind):
+    action_answer(run, "false", **answer)
+    assert run("create", "--existence-from-action").code == 1
+    assert run.kind == kind
+    assert run.log == []
+
+
+def test_create_with_no_app_recorded_does_not_need_the_actions_answer(run):
+    run.env.pop("SLACK_APP_ID")
+    assert run("create", "--existence-from-action").code == 0
+    assert run.log[0] == "create"
 
 
 def test_verify_passes_when_the_installed_app_holds_every_permission(run):

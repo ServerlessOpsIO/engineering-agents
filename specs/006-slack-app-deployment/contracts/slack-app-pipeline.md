@@ -57,8 +57,8 @@ needs `check`, `apply` and `create`, runs with `if: always()`, and only on `main
 
 ### Slack's GitHub Action
 
-`apps.manifest.validate` (in `check`) and `apps.manifest.update` (in `apply`) are called by
-`slackapi/slack-github-action`, pinned to the commit of v4.0.0, with `method`, `token`
+`apps.manifest.validate` (in `check`), `apps.manifest.export` (in `apply` and `create`) and
+`apps.manifest.update` (in `apply`) are called by `slackapi/slack-github-action`, pinned to the commit of v4.0.0, with `method`, `token`
 (`SLACK_SERVICE_TOKEN`) and `payload-file-path` (the request file the program wrote). Its
 `errors` input is left off, so its step passes whatever Slack answers. The next step runs
 `slack-app result`, which is given only these fields of the action's `response` output:
@@ -68,7 +68,14 @@ response is never passed to a step.
 Steps in `check`: `check --payload`, the action, `result`. The last two are skipped when
 `SLACK_SERVICE_TOKEN` is not available.
 
-Steps in `apply`: `prepare --payload`, the action, `result`, `verify`.
+Steps in `apply`: `prepare --payload` (contacts nothing); the action calling
+`apps.manifest.export`; `result --method apps.manifest.export`, which is also given the
+returned manifest (`SLACK_ACTION_MANIFEST`), since it holds no secrets; the action calling
+`apps.manifest.update`; `result --method apps.manifest.update`; `verify`.
+
+Steps in `create`: the action calling `apps.manifest.export`, only when `SLACK_APP_ID` is
+set; then `create --existence-from-action`, which reads that answer, refuses when the app
+exists, and otherwise calls `apps.manifest.create` itself and stores the app's values.
 
 ## 2. Command `pipenv run slack-app <command>`
 
@@ -76,12 +83,12 @@ Steps in `apply`: `prepare --payload`, the action, `result`, `verify`.
 |---|---|---|---|
 | `check` | The two files in `slack/` | Offline check; builds the manifest | Nothing. `--output FILE` writes the built manifest. |
 | `check --payload FILE` | Files; `SLACK_APP_ID` if set | Offline check; writes the request for the action: `{"manifest": "<the built manifest as text>", "app_id": "<if set>"}` | The request file |
-| `prepare --payload FILE` | Files; `SLACK_SERVICE_TOKEN`; `SLACK_APP_ID` | Offline check; confirms the recorded app exists; writes the request | The request file |
-| `result --method METHOD` | `SLACK_ACTION_OK`, `SLACK_ACTION_ERROR`, `SLACK_ACTION_ERRORS`, `SLACK_ACTION_STATUS`, `SLACK_ACTION_CODE`, `SLACK_ACTION_RETRY_AFTER` | Passes when Slack accepted the call; otherwise fails with one failure kind | Nothing |
+| `prepare --payload FILE` | Files; `SLACK_SERVICE_TOKEN` (only to confirm it is set); `SLACK_APP_ID` | Offline check; fails when no app is recorded; writes the request. Contacts nothing | The request file |
+| `result --method METHOD` | `SLACK_ACTION_OK`, `SLACK_ACTION_ERROR`, `SLACK_ACTION_ERRORS`, `SLACK_ACTION_STATUS`, `SLACK_ACTION_CODE`, `SLACK_ACTION_RETRY_AFTER` | Passes when Slack accepted the call; otherwise fails with one failure kind. For `apps.manifest.export`, also reads `SLACK_ACTION_MANIFEST` and notes when the app had drifted from the definition | Nothing |
 | `verify` | Files; `SLACK_BOT_TOKEN` if set | Checks the installed app's scopes | Nothing |
 | `validate` (by hand) | Files; `SLACK_SERVICE_TOKEN`; `SLACK_APP_ID` if set | Asks Slack to validate the built manifest | Nothing |
 | `apply` (by hand) | Files; `SLACK_SERVICE_TOKEN`; `SLACK_APP_ID`; `SLACK_BOT_TOKEN` if set | Confirms the app exists; updates it; checks installed scopes | Nothing |
-| `create` | Files; `SLACK_SERVICE_TOKEN`; `SLACK_STORE_TOKEN`; `SLACK_APP_ID` if set | Refuses if the recorded app exists; creates the app | `SLACK_APP_ID`, `SLACK_SIGNING_SECRET`, `SLACK_CLIENT_ID`, `SLACK_CLIENT_SECRET` |
+| `create [--existence-from-action]` | Files; `SLACK_SERVICE_TOKEN`; `SLACK_STORE_TOKEN`; `SLACK_APP_ID` if set; with the option, the `SLACK_ACTION_*` fields for `apps.manifest.export` | Refuses if the recorded app exists, asking Slack itself or, with the option, reading the answer the action got; creates the app | `SLACK_APP_ID`, `SLACK_SIGNING_SECRET`, `SLACK_CLIENT_ID`, `SLACK_CLIENT_SECRET` |
 
 Inputs come from environment variables with the names above, plus `GITHUB_REPOSITORY` for
 `create`.
