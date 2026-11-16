@@ -1,0 +1,45 @@
+# The STRIDEr Slack app. This file is the single source of truth for the app:
+# the pipeline makes the app in Slack match it. Do not change the app in the
+# Slack console; a change made there is undone within a day.
+#
+# Every scope and every event below must have a comment giving its reason. The
+# pipeline's check fails without one. How to change this file is described in
+# docs/handbook/08-slack-app.md.
+#
+# The event delivery address is not set here. It is `event_request_url` in
+# slack/settings.json. While that is empty, the events below are not sent to
+# Slack, because Slack does not accept events without an address.
+
+display_information:
+  name: STRIDEr
+  description: Leads threat modeling exercises using the STRIDE framework.
+
+features:
+  bot_user:
+    display_name: STRIDEr
+    always_online: true
+  app_home:
+    home_tab_enabled: false
+    # Slack only lets people send a direct message to an app when this is on.
+    messages_tab_enabled: true
+    messages_tab_read_only_enabled: false
+
+oauth_config:
+  scopes:
+    bot:
+      - app_mentions:read  # Be told when someone mentions STRIDEr in a channel.
+      - chat:write  # Post replies.
+      - im:history  # Read direct messages sent to STRIDEr.
+      - channels:history  # Read thread replies in public channels that do not mention STRIDEr.
+      - groups:history  # Read thread replies in private channels that do not mention STRIDEr.
+
+settings:
+  event_subscriptions:
+    bot_events:
+      - app_mention  # Someone mentioned STRIDEr in a channel.
+      - message.im  # Someone sent STRIDEr a direct message.
+      - message.channels  # A message, including a thread reply, in a public channel STRIDEr is in.
+      - message.groups  # A message, including a thread reply, in a private channel STRIDEr is in.
+  org_deploy_enabled: false
+  socket_mode_enabled: false
+  token_rotation_enabled: false

@@ -36,6 +36,74 @@ Nothing in this document has been tried against Slack or GitHub.
 far as the documentation goes (F1, F2, F6, F10 documented; F3 and F11 still believed). Two
 things were found that the spec did not know: F12 and F13.
 
+## Decision 12: The pipeline credential is a Slack CLI service token (2026-11-16)
+
+**This replaces Decisions 2 and 4 and narrows Decision 3. Facts F1 to F4 no longer matter
+to the design.** Those sections are kept below as the record of what was first built.
+
+**Decision**: The pipeline authenticates to Slack with a service token, obtained once by
+the owner with `slack auth token` and stored as the repository secret
+`SLACK_SERVICE_TOKEN`. The program sends it unchanged to the same four Manifest API methods
+and never writes it.
+
+**Why it changed**: After the first implementation the owner asked whether the rotating
+refresh token was needed and chose a service token. Slack's documentation describes
+service tokens as "long-lived, non-rotatable user tokens" that "won't expire". The Slack
+CLI's source (`internal/api/app.go`) shows the CLI sends its own token to
+`apps.manifest.create`, `export`, `update` and `validate`, which is why one was expected to
+work here.
+
+**What it removes**: renewing on every run; writing a secret on every run; the failure in
+which a renewed token is lost before it is stored; the need for runs never to overlap for
+the credential's sake; `SLACK_STORE_TOKEN` in every job but `create`.
+
+**What it costs**: a permanent credential that can do anything the Slack CLI can as the
+owner, where the earlier design had one that changed on every run. It is readable by
+branch runs (Decision 5). If it may have leaked: `slack auth revoke --token`, then issue
+and store a new one.
+
+**Checked**: on 2026-11-16 the owner ran `pipenv run slack-app validate` with a service
+token and it passed, so `apps.manifest.validate` accepts one. `export`, `update`, `create`
+and `auth.test` have not been tried with it.
+
+## Decision 13: Slack's GitHub Action makes the validate and update calls (2026-11-16)
+
+**Decision**: `slackapi/slack-github-action` v4.0.0, pinned to its commit, calls
+`apps.manifest.validate` and `apps.manifest.update` with its `method` input and the service
+token. The program keeps everything else and can still do the whole job by hand.
+
+**Why this route and not the action's Slack CLI commands**: Slack documents
+`manifest validate` and `deploy` through the CLI for this action, but what `deploy` does to
+an app that is not hosted by Slack was not established, and the CLI expects a project
+layout this repository does not have. Calling the API methods through the action avoids
+both questions.
+
+**Read from the action's source on 2026-11-16** (`src/client.js`, `src/send.js`): the
+`ok` and `response` outputs are set whether the call succeeds or fails; with `errors` left
+off, a failed call is a warning and the step passes; the token is registered as a secret;
+the request content is only printed in debug logging.
+
+**What stays in the program, and why**:
+
+- The offline check and build: the action knows nothing of this project's rules.
+- Confirming the app exists before an update (`apps.manifest.export`): keeps "deleted"
+  apart from "unreachable" (FR-024).
+- Reading the answer: gives a failure kind and the text for the failure issue (FR-011,
+  FR-026).
+- The installed-permissions check: needs a response header the action does not return.
+- Creating the app: Slack's answer holds the signing secret and client secret, and the
+  action exposes the whole answer as a step output that cannot be masked first.
+
+**Secrets**: the Slack CLI's source suggests an update's answer may also hold credentials
+(`UpdateAppResult` has a `Credentials` field, marked for removal). A step's `env` is shown
+in its log, and this repository's logs are public, so the workflow passes on only the error
+fields of the answer, selected with expressions, and never the whole answer. Debug logging
+would still print the output, so the handbook says not to enable it for this workflow.
+
+**Not tried**: the action has not run in this workflow. The expressions that pick fields
+out of its output have not been linted or run. The first branch push tests `validate`; the
+first run on `main` tests `update`.
+
 ## Decision 1: Call Slack's Manifest API directly; do not use Terraform (FR-022)
 
 **Decision**: A small Python program in this repository calls the Manifest API. The pipeline
@@ -63,7 +131,7 @@ this feature is not allowed to create, and would put the signing secret in it.
 **Alternatives considered**: the Slack CLI (`slack deploy`) is aimed at apps hosted by
 Slack and logs in interactively; not suited to a pipeline for this kind of app.
 
-## Decision 2: The pipeline credential is the refresh token alone, renewed on every run
+## Decision 2 (superseded by Decision 12): The pipeline credential is the refresh token alone, renewed on every run
 
 **Decision**: Store only the refresh token (`SLACK_CONFIG_REFRESH_TOKEN`). Every job that
 contacts Slack first calls `tooling.tokens.rotate`, immediately stores the new refresh
@@ -103,7 +171,7 @@ expired token produces a named failure.
 key to keep; too much for one repository). A secret in the cloud platform's secret store
 (needs a resource; FR-019). An organization-level secret (wider than needed).
 
-## Decision 4: Runs that contact Slack never overlap
+## Decision 4 (superseded by Decision 12): Runs that contact Slack never overlap
 
 **Decision**: Every job that contacts Slack is in one concurrency group, `slack-app`, that
 queues and does not cancel.
@@ -111,6 +179,9 @@ queues and does not cancel.
 **Rationale**: Two rotations at once would each use the same refresh token and one would
 lose (F3). Queuing also makes "the later merge wins" true for the edge case of two merges
 close together.
+
+**After Decision 12**: runs still queue in one concurrency group, now only so that two
+updates to the app do not overlap and the later one wins.
 
 ## Decision 5: Branches are checked twice: without Slack, then by Slack
 
@@ -292,5 +363,8 @@ installed in the agent's image.
 - GitHub: Permissions required for fine-grained personal access tokens — https://docs.github.com/en/rest/authentication/permissions-required-for-fine-grained-personal-access-tokens
 - GitHub: REST API endpoints for GitHub Actions secrets — https://docs.github.com/en/rest/actions/secrets
 - Slack: manifest schema — https://github.com/slackapi/manifest-schema
+- Slack CLI: authorizing the CLI (service tokens) — https://docs.slack.dev/tools/slack-cli/guides/authorizing-the-slack-cli
+- Slack CLI source — https://github.com/slackapi/slack-cli
+- Slack's GitHub Action — https://github.com/slackapi/slack-github-action
 - Terraform provider `ymm-oss/slackapp` — https://github.com/yumemi-inc/terraform-provider-slackapp
 - Terraform provider `change-engine/slack-app` — https://github.com/change-engine/terraform-provider-slack-app

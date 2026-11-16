@@ -81,6 +81,10 @@ jobs:
           repo_policy_file: .github/workflows/ecr-policy.json
 
   deploy:
+    # Switched off: the deployment fails for branches with long names, because
+    # the runtime name built from the branch goes over AgentCore's 48 characters.
+    # Branches are still tested and built. See issue #10 before removing this.
+    if: false
     needs:
       - build_infra
       - build_container

@@ -72,6 +72,27 @@ The runtime passes these to the agent: `MODEL_ID`, `REASONING_EFFORT`, `MAX_PROM
 Do not put secrets in environment variables or parameters. Store them in AWS Secrets Manager
 and grant the execution role permission to read them.
 
+## Slack app values
+
+The `Slack app` workflow uses these repository-level GitHub values. None of them is in
+`cfn-parameters.json`, and nothing in the template reads them yet. How each is created is in
+[The STRIDEr Slack app](08-slack-app.md#first-time-setup).
+
+| Name | Kind | Written by | Read by |
+| --- | --- | --- | --- |
+| `SLACK_SERVICE_TOKEN` | Secret | You | The `Slack app` workflow |
+| `SLACK_STORE_TOKEN` | Secret | You | The `create` job of the `Slack app` workflow |
+| `SLACK_APP_ID` | Variable | The creation run | The `Slack app` workflow; the later feature |
+| `SLACK_SIGNING_SECRET` | Secret | The creation run | The later feature |
+| `SLACK_CLIENT_ID` | Secret | The creation run | The later feature |
+| `SLACK_CLIENT_SECRET` | Secret | The creation run | The later feature |
+| `SLACK_BOT_TOKEN` | Secret | You, after installing the app | The `Slack app` workflow; the later feature |
+
+The later feature, which deploys the service that receives Slack events, reads
+`SLACK_APP_ID`, `SLACK_SIGNING_SECRET`, `SLACK_CLIENT_ID`, `SLACK_CLIENT_SECRET` and
+`SLACK_BOT_TOKEN`. It must not write them and must not call Slack's app definition service;
+only the `Slack app` workflow does.
+
 ## Tags
 
 `cfn-tags.json` sets `org:domain`, `org:system` and `org:component` on the stack's resources.

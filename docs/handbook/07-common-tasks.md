@@ -8,8 +8,8 @@ pipenv run test-unit
 sam validate --lint
 ```
 
-Push the branch. The `Branches` workflow tests, builds and deploys a stack for it. Merge to
-`main` to deploy the `main` stack.
+Push the branch. The `Branches` workflow tests and builds it; it does not deploy at present
+(issue #10). Merge to `main` to deploy the `main` stack.
 
 ## Run the agent locally
 
