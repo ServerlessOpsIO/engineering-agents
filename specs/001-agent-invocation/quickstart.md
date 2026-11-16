@@ -110,7 +110,7 @@ not set.
 
 ```bash
 cd src/agent
-MODEL_ID=global.anthropic.claude-haiku-5-5 pipenv run python main.py
+MODEL_ID=us.openai.gpt-6-luna pipenv run python main.py
 ```
 
 In another terminal:

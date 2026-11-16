@@ -42,9 +42,27 @@ Parameters:
   ModelId:
     Type: String
     Description: >-
-      Amazon Bedrock inference profile ID the agent uses, in the form
-      <scope>.<provider>.<model>; ex. us.anthropic.claude-haiku-5-5
-    AllowedPattern: '^[a-z-]+\.[a-z0-9-]+\.[a-zA-Z0-9:_-]+$'
+      Amazon Bedrock inference profile ID the agent uses. It must be a United
+      States profile, which starts with "us."; ex. us.openai.gpt-6-luna
+    AllowedPattern: '^us\.[a-zA-Z0-9.:_-]+$'
+    ConstraintDescription: >-
+      must be a United States inference profile ID starting with "us.". Global
+      profiles are refused because the organization restricts regions.
+
+  ReasoningEffort:
+    Type: String
+    Description: >-
+      How much the model reasons before answering. "default" leaves the choice
+      to the model.
+    AllowedValues:
+      - default
+      - none
+      - low
+      - medium
+      - high
+      - xhigh
+      - max
+    Default: default
 
   MaxPromptChars:
     Type: Number
@@ -142,9 +160,9 @@ Resources:
                   - 'arn:${AWS::Partition}:ecr:${RepoRegion}:${RepoAccountId}:repository/${ContainerOrg}/${ContainerImage}'
                   - RepoAccountId: !Select [0, !Split ['.', !Ref ContainerRepo]]
                     RepoRegion: !Select [3, !Split ['.', !Ref ContainerRepo]]
-              # The inference profile routes requests to the model in other
-              # regions, so the foundation model is allowed in any region. The
-              # region-less form is the one global profiles use.
+              # The agent may call its configured inference profile. OpenAI
+              # models on the bedrock-runtime endpoint also need the account's
+              # default Bedrock project, which is not a model.
               - Sid: Model
                 Effect: Allow
                 Action:
@@ -152,14 +170,23 @@ Resources:
                   - bedrock:InvokeModelWithResponseStream
                 Resource:
                   - !Sub 'arn:${AWS::Partition}:bedrock:${AWS::Region}:${AWS::AccountId}:inference-profile/${ModelId}'
-                  - !Sub
-                    - 'arn:${AWS::Partition}:bedrock:*::foundation-model/${Provider}.${Model}'
-                    - Provider: !Select [1, !Split ['.', !Ref ModelId]]
-                      Model: !Select [2, !Split ['.', !Ref ModelId]]
-                  - !Sub
-                    - 'arn:${AWS::Partition}:bedrock:::foundation-model/${Provider}.${Model}'
-                    - Provider: !Select [1, !Split ['.', !Ref ModelId]]
-                      Model: !Select [2, !Split ['.', !Ref ModelId]]
+                  - !Sub 'arn:${AWS::Partition}:bedrock:${AWS::Region}:${AWS::AccountId}:project/default'
+              # The profile routes each request to the model in one of several
+              # regions, so the foundation model is allowed in any region, but
+              # only when the request comes through the configured profile.
+              # The condition is used instead of naming the model because the
+              # model's name cannot be derived reliably from the profile ID.
+              - Sid: ModelThroughProfile
+                Effect: Allow
+                Action:
+                  - bedrock:InvokeModel
+                  - bedrock:InvokeModelWithResponseStream
+                Resource:
+                  - !Sub 'arn:${AWS::Partition}:bedrock:*::foundation-model/*'
+                  - !Sub 'arn:${AWS::Partition}:bedrock:::foundation-model/*'
+                Condition:
+                  StringEquals:
+                    bedrock:InferenceProfileArn: !Sub 'arn:${AWS::Partition}:bedrock:${AWS::Region}:${AWS::AccountId}:inference-profile/${ModelId}'
               - Sid: Memory
                 Effect: Allow
                 Action:
@@ -191,6 +218,7 @@ Resources:
         MaxLifetime: 1800
       EnvironmentVariables:
         MODEL_ID: !Ref ModelId
+        REASONING_EFFORT: !Ref ReasoningEffort
         MAX_PROMPT_CHARS: !Ref MaxPromptChars
         LOG_LEVEL: !Ref LogLevel
         MEMORY_ID: !GetAtt AgentMemory.MemoryId
