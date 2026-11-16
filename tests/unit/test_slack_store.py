@@ -91,7 +91,7 @@ def test_a_missing_store_token_is_a_missing_credential():
     with pytest.raises(SlackAppError) as raised:
         make_store(gh, token="").set_secret("NAME", "value")
     assert raised.value.kind == "credential_missing"
-    assert raised.value.details == ["SLACK_STORE_TOKEN is not set"]
+    assert raised.value.details == ["SLACK_GHA_STORE_TOKEN is not set"]
     assert gh.runs == []
 
 

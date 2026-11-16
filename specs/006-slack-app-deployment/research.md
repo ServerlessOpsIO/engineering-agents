@@ -55,7 +55,7 @@ work here.
 
 **What it removes**: renewing on every run; writing a secret on every run; the failure in
 which a renewed token is lost before it is stored; the need for runs never to overlap for
-the credential's sake; `SLACK_STORE_TOKEN` in every job but `create`.
+the credential's sake; `SLACK_GHA_STORE_TOKEN` in every job but `create`.
 
 **What it costs**: a permanent credential that can do anything the Slack CLI can as the
 owner, where the earlier design had one that changed on every run. It is readable by
@@ -100,7 +100,16 @@ in its log, and this repository's logs are public, so the workflow passes on onl
 fields of the answer, selected with expressions, and never the whole answer. Debug logging
 would still print the output, so the handbook says not to enable it for this workflow.
 
-**Not tried**: the action has not run in this workflow. The expressions that pick fields
+**Extended on 2026-11-16**: the check that the recorded app exists
+(`apps.manifest.export`) now also goes through the action, in both `apply` and `create`.
+Its answer is the app's manifest, which holds no secrets, so it is the one answer passed on
+whole. The program still decides what the answer means. After this the program's own calls
+to Slack in the pipeline are `apps.manifest.create` and `auth.test`.
+
+**Tried**: `apps.manifest.validate` through the action passed on the feature branch on
+2026-11-16, with the service token.
+
+**Not tried**: `export` and `update` through the action have not run; they only run on `main`. The expressions that pick fields
 out of its output have not been linted or run. The first branch push tests `validate`; the
 first run on `main` tests `update`.
 
@@ -158,7 +167,7 @@ step. Rejected.
 **Decision**: Repository-level secrets and variables (not environment-level), so the later
 feature's deploy job can read them however it is arranged. Writing them from a workflow uses
 a fine-grained personal access token limited to this repository with "Secrets: write" and
-"Variables: write" (F16), stored as `SLACK_STORE_TOKEN`. Values are written with the `gh`
+"Variables: write" (F16), stored as `SLACK_GHA_STORE_TOKEN`. Values are written with the `gh`
 command, which does the encryption GitHub requires.
 
 **Rationale**: The owner chose GitHub secrets as the starting point. A fine-grained token is

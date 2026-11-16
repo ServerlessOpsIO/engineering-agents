@@ -25,7 +25,7 @@ FAILURE_HELP = {
         f"See 'Recovery' in {HANDBOOK}."
     ),
     "store_failed": (
-        "A value could not be written to GitHub. Check SLACK_STORE_TOKEN and its "
+        "A value could not be written to GitHub. Check SLACK_GHA_STORE_TOKEN and its "
         f"expiry date, then store the value by hand: see 'Recovery' in {HANDBOOK}."
     ),
     "app_not_recorded": (

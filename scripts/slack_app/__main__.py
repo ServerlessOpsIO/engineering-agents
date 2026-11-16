@@ -7,7 +7,7 @@ validate and update the app:
     pipenv run slack-app prepare --payload FILE
     pipenv run slack-app result --method METHOD
     pipenv run slack-app verify
-    pipenv run slack-app create
+    pipenv run slack-app create [--existence-from-action]
 
 For running by hand, these do the whole job without the action:
 
@@ -32,7 +32,7 @@ from slack_app.slack_api import SlackApi, failure  # noqa: E402
 from slack_app.store import Store, mask  # noqa: E402
 
 SERVICE_TOKEN = "SLACK_SERVICE_TOKEN"
-STORE_TOKEN = "SLACK_STORE_TOKEN"
+STORE_TOKEN = "SLACK_GHA_STORE_TOKEN"
 APP_ID = "SLACK_APP_ID"
 BOT_TOKEN = "SLACK_BOT_TOKEN"
 SIGNING_SECRET = "SLACK_SIGNING_SECRET"
@@ -47,6 +47,8 @@ ACTION_ERRORS = "SLACK_ACTION_ERRORS"
 ACTION_STATUS = "SLACK_ACTION_STATUS"
 ACTION_CODE = "SLACK_ACTION_CODE"
 ACTION_RETRY_AFTER = "SLACK_ACTION_RETRY_AFTER"
+# The app's manifest as Slack returned it from apps.manifest.export. It holds no secrets.
+ACTION_MANIFEST = "SLACK_ACTION_MANIFEST"
 
 
 class Context:
@@ -105,8 +107,19 @@ def _write_payload(context, path, built, app_id=None):
     context.note(f"The request for Slack was written to {path}.")
 
 
+def _note_drift(context, exported, built):
+    if not _contains(exported, built):
+        context.note(
+            "The app in Slack does not match the app definition. A change made outside "
+            "the pipeline is being undone."
+        )
+
+
 def _confirm_app(context, built):
     """Confirm the recorded app exists in Slack and return (token, app ID).
+
+    Used when running by hand. In the pipeline Slack's GitHub Action makes the
+    call and `result` reads its answer.
 
     Raises app_not_recorded or app_gone. An outage or a refused credential
     raises its own kind, and never leads to creating an app.
@@ -115,13 +128,32 @@ def _confirm_app(context, built):
     if not app_id:
         raise SlackAppError("app_not_recorded", [f"{APP_ID} is not set"])
     token = _service_token(context)
-    exported = context.api.export(token, app_id)
-    if not _contains(exported, built):
-        context.note(
-            "The app in Slack does not match the app definition. A change made outside "
-            "the pipeline is being undone."
-        )
+    _note_drift(context, context.api.export(token, app_id), built)
     return token, app_id
+
+
+def _action_answer(env):
+    """Return (accepted, answer) from what the workflow passed on from Slack's action."""
+    ok = (env.get(ACTION_OK) or "").strip().lower() == "true"
+    error = (env.get(ACTION_ERROR) or "").strip()
+    if ok and not error:
+        return True, {}
+
+    answer = {}
+    if error:
+        answer["error"] = error
+        try:
+            problems = json.loads(env.get(ACTION_ERRORS) or "null")
+        except ValueError:
+            problems = None
+        answer["errors"] = problems if isinstance(problems, list) else []
+    if (env.get(ACTION_STATUS) or "").strip().isdigit():
+        answer["statusCode"] = int(env[ACTION_STATUS])
+    if (env.get(ACTION_RETRY_AFTER) or "").strip():
+        answer["retryAfter"] = env[ACTION_RETRY_AFTER]
+    if (env.get(ACTION_CODE) or "").strip():
+        answer["code"] = env[ACTION_CODE]
+    return False, answer
 
 
 def _verify_installed(context, built):
@@ -155,37 +187,34 @@ def check(context, args):
 
 
 def prepare(context, args):
-    """Before Slack's GitHub Action updates the app: check, and confirm the app exists."""
+    """Before Slack's GitHub Action updates the app: check, and write the request.
+
+    Contacts nothing. Fails here, with a clear reason, for the things that would
+    otherwise make the action fail without one.
+    """
     built = definition.check(context.root)
-    _, app_id = _confirm_app(context, built)
+    app_id = context.env.get(APP_ID)
+    if not app_id:
+        raise SlackAppError("app_not_recorded", [f"{APP_ID} is not set"])
+    _service_token(context)
     _write_payload(context, args.payload, built, app_id)
-    context.note(f"The Slack app {app_id} exists and is ready to be updated.")
 
 
 def result(context, args):
     """After Slack's GitHub Action: turn its answer into a pass or one failure kind."""
-    env = context.env
-    ok = (env.get(ACTION_OK) or "").strip().lower() == "true"
-    error = (env.get(ACTION_ERROR) or "").strip()
-    if ok and not error:
-        context.note(f"Slack accepted {args.method}.")
-        return
+    accepted, answer = _action_answer(context.env)
+    if not accepted:
+        raise failure(args.method, answer)
+    context.note(f"Slack accepted {args.method}.")
 
-    answer = {}
-    if error:
-        answer["error"] = error
+    if args.method == "apps.manifest.export":
+        # The app exists. Say so, and say whether it had drifted from the definition.
         try:
-            problems = json.loads(env.get(ACTION_ERRORS) or "null")
+            exported = json.loads(context.env.get(ACTION_MANIFEST) or "null")
         except ValueError:
-            problems = None
-        answer["errors"] = problems if isinstance(problems, list) else []
-    if (env.get(ACTION_STATUS) or "").strip().isdigit():
-        answer["statusCode"] = int(env[ACTION_STATUS])
-    if (env.get(ACTION_RETRY_AFTER) or "").strip():
-        answer["retryAfter"] = env[ACTION_RETRY_AFTER]
-    if (env.get(ACTION_CODE) or "").strip():
-        answer["code"] = env[ACTION_CODE]
-    raise failure(args.method, answer)
+            exported = None
+        if isinstance(exported, dict):
+            _note_drift(context, exported, definition.check(context.root))
 
 
 def verify(context, args):
@@ -225,7 +254,13 @@ def create(context, args):
     recorded = context.env.get(APP_ID)
     if recorded:
         try:
-            context.api.export(token, recorded)
+            if args.existence_from_action:
+                # Slack's GitHub Action asked Slack for the recorded app; read its answer.
+                accepted, answer = _action_answer(context.env)
+                if not accepted:
+                    raise failure("apps.manifest.export", answer)
+            else:
+                context.api.export(token, recorded)
         except SlackAppError as error:
             if error.kind != "app_gone":
                 raise  # Slack unreachable or credential refused: do not create.
@@ -299,7 +334,7 @@ def main(argv=None, env=None, api=None, store=None, root=".", out=print):
         "--payload", metavar="FILE", help="write the request for Slack's GitHub Action to FILE"
     )
     commands.add_parser(
-        "prepare", help="check, confirm the recorded app exists, and write the request"
+        "prepare", help="check, and write the request for updating the recorded app"
     ).add_argument("--payload", metavar="FILE", required=True)
     commands.add_parser(
         "result", help="turn the answer Slack's GitHub Action got into a pass or a failure"
@@ -309,7 +344,12 @@ def main(argv=None, env=None, api=None, store=None, root=".", out=print):
     commands.add_parser(
         "apply", help="by hand: make the recorded Slack app match the app definition"
     )
-    commands.add_parser("create", help="create the Slack app; refuses if it exists")
+    commands.add_parser(
+        "create", help="create the Slack app; refuses if it exists"
+    ).add_argument(
+        "--existence-from-action", action="store_true",
+        help="read whether the recorded app exists from the answer Slack's GitHub Action got",
+    )
     args = parser.parse_args(argv)
 
     env = os.environ if env is None else env

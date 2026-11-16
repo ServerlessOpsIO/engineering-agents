@@ -100,8 +100,8 @@ jobs:
       )
     runs-on: ubuntu-latest
     outputs:
-      failure_kind: ${{ steps.verify.outputs.failure_kind || steps.result.outputs.failure_kind || steps.prepare.outputs.failure_kind }}
-      failure_help: ${{ steps.verify.outputs.failure_help || steps.result.outputs.failure_help || steps.prepare.outputs.failure_help }}
+      failure_kind: ${{ steps.verify.outputs.failure_kind || steps.result.outputs.failure_kind || steps.exists.outputs.failure_kind || steps.prepare.outputs.failure_kind }}
+      failure_help: ${{ steps.verify.outputs.failure_help || steps.result.outputs.failure_help || steps.exists.outputs.failure_help || steps.prepare.outputs.failure_help }}
 
     steps:
       - name: Setup job workspace
@@ -112,14 +112,37 @@ jobs:
         with:
           python_version: '3.14'
 
-      # Confirms the recorded app still exists before anything is sent, so a
-      # deleted app is reported as that and never mistaken for an outage.
+      # Contacts nothing. Fails here when no app is recorded.
       - name: Prepare the update
         id: prepare
         env:
           SLACK_SERVICE_TOKEN: ${{ secrets.SLACK_SERVICE_TOKEN }}
           SLACK_APP_ID: ${{ vars.SLACK_APP_ID }}
         run: pipenv run slack-app prepare --payload "$RUNNER_TEMP/slack-update.json"
+
+      # Confirms the recorded app still exists before anything is sent, so a
+      # deleted app is reported as that and never mistaken for an outage.
+      - name: Ask Slack for the recorded app
+        id: export
+        uses: slackapi/slack-github-action@dcb1066f776dd043e64d0e8ba94ca15cc7e1875d # v4.0.0
+        with:
+          method: apps.manifest.export
+          token: ${{ secrets.SLACK_SERVICE_TOKEN }}
+          payload: |
+            app_id: ${{ vars.SLACK_APP_ID }}
+
+      # The manifest Slack returns holds no secrets, so it is passed on whole.
+      - name: Confirm the app exists
+        id: exists
+        env:
+          SLACK_ACTION_OK: ${{ steps.export.outputs.ok }}
+          SLACK_ACTION_ERROR: ${{ fromJSON(steps.export.outputs.response || '{}').error }}
+          SLACK_ACTION_ERRORS: ${{ toJSON(fromJSON(steps.export.outputs.response || '{}').errors) }}
+          SLACK_ACTION_STATUS: ${{ fromJSON(steps.export.outputs.response || '{}').statusCode }}
+          SLACK_ACTION_CODE: ${{ fromJSON(steps.export.outputs.response || '{}').code }}
+          SLACK_ACTION_RETRY_AFTER: ${{ fromJSON(steps.export.outputs.response || '{}').retryAfter }}
+          SLACK_ACTION_MANIFEST: ${{ toJSON(fromJSON(steps.export.outputs.response || '{}').manifest) }}
+        run: pipenv run slack-app result --method apps.manifest.export
 
       - name: Update the Slack app
         id: slack
@@ -166,14 +189,35 @@ jobs:
         with:
           python_version: '3.14'
 
+      # Only when an app is already recorded: is it still there? The next step
+      # refuses to create while it is, and replaces it only when Slack says it
+      # does not exist.
+      - name: Ask Slack for the recorded app
+        id: export
+        if: vars.SLACK_APP_ID != ''
+        uses: slackapi/slack-github-action@dcb1066f776dd043e64d0e8ba94ca15cc7e1875d # v4.0.0
+        with:
+          method: apps.manifest.export
+          token: ${{ secrets.SLACK_SERVICE_TOKEN }}
+          payload: |
+            app_id: ${{ vars.SLACK_APP_ID }}
+
+      # The program makes the creating call itself. Slack's answer to it holds
+      # the app's secrets, and Slack's action would expose the whole answer as
+      # a step output before anything could hide them.
       - name: Create the Slack app
         id: create
         env:
           SLACK_SERVICE_TOKEN: ${{ secrets.SLACK_SERVICE_TOKEN }}
           # Only this job writes to GitHub: the new app's ID and secrets.
-          SLACK_STORE_TOKEN: ${{ secrets.SLACK_STORE_TOKEN }}
+          SLACK_GHA_STORE_TOKEN: ${{ secrets.SLACK_GHA_STORE_TOKEN }}
           SLACK_APP_ID: ${{ vars.SLACK_APP_ID }}
-        run: pipenv run slack-app create
+          SLACK_ACTION_OK: ${{ steps.export.outputs.ok }}
+          SLACK_ACTION_ERROR: ${{ fromJSON(steps.export.outputs.response || '{}').error }}
+          SLACK_ACTION_STATUS: ${{ fromJSON(steps.export.outputs.response || '{}').statusCode }}
+          SLACK_ACTION_CODE: ${{ fromJSON(steps.export.outputs.response || '{}').code }}
+          SLACK_ACTION_RETRY_AFTER: ${{ fromJSON(steps.export.outputs.response || '{}').retryAfter }}
+        run: pipenv run slack-app create --existence-from-action
 
   # A job of its own so that it runs when an earlier job failed or was skipped.
   # A step inside apply would not run when check fails first.
