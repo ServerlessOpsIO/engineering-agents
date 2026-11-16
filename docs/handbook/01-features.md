@@ -28,6 +28,18 @@
 - GitHub Actions workflows that test the agent, build and push its image, and deploy the stack.
   Every deploying branch gets its own stack and its own runtime.
 
+## The STRIDEr Slack app
+
+- A Slack app for STRIDEr, a coming agent that will lead threat modeling exercises using the
+  STRIDE framework. Its definition is `slack/manifest.yaml`.
+- A workflow that checks the definition on branches, applies it to Slack when it changes on
+  `main`, reapplies it once a day, and creates the app only when started by hand.
+- The app's ID, signing secret, client ID, client secret and bot token stored as GitHub
+  values for a later feature to read.
+- **Not yet:** STRIDEr does not answer. The service that receives messages from Slack is a
+  later feature, and until it exists the app subscribes to no events. See
+  [The STRIDEr Slack app](08-slack-app.md).
+
 ## Observability
 
 - One structured JSON log record per request, with a correlation ID, outcome, duration and

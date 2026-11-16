@@ -6,13 +6,14 @@
 | --- | --- | --- |
 | `.github/workflows/main.yml` (`Main`) | Push to `main` | `workflow_dispatch` |
 | `.github/workflows/branch.yml` (`Branches`) | Push to any branch except `main` | `workflow_dispatch` |
+| `.github/workflows/slack-app.yml` (`Slack app`) | Push to any branch that changes a Slack file; once a day | `workflow_dispatch` with an action |
 
-Pushes that change only `specs/**` or `docs/**` do not run either workflow. There is no
+Pushes that change only `specs/**` or `docs/**` do not run `Main` or `Branches`. There is no
 `pull_request` trigger.
 
 ## Jobs
 
-Both workflows run the same three jobs. **Both deploy**: every branch that runs the workflow
+`Main` and `Branches` run the same three jobs. **Both deploy**: every branch that runs the workflow
 gets its own stack.
 
 ### `build_infra`
@@ -61,3 +62,52 @@ A branch deployment creates a separate runtime and memory named after the branch
 
 - Images accumulate in the ECR repository; there is no lifecycle policy.
 - The image is not patched automatically. A rebuild picks up the current base image.
+
+## The Slack app workflow
+
+`Slack app` keeps the STRIDEr Slack app in step with `slack/manifest.yaml`. It is a separate
+workflow from `Main` and `Branches`: neither waits for, blocks or cancels the other, and a
+commit shows a failed check if either fails. What it manages and how to repair it is in
+[The STRIDEr Slack app](08-slack-app.md).
+
+### When it runs
+
+The Slack files are `slack/**`, `scripts/slack_app/**` and the workflow file itself.
+
+| Trigger | Jobs |
+| --- | --- |
+| Push to a branch other than `main` that changes a Slack file | `check` |
+| Push to `main` that changes a Slack file | `check`, `apply`, `report` |
+| Once a day | `check`, `apply`, `report` |
+| Started by hand on `main` with the action `apply` | `check`, `apply`, `report` |
+| Started by hand on `main` with the action `create` | `check`, `create`, `report` |
+
+A push that changes no Slack file does not start it, so it does not contact Slack. A merge
+that changes only Slack files still starts `Main`, which builds and deploys the agent as for
+any other change.
+
+### Jobs
+
+| Job | What it does | Changes Slack |
+| --- | --- | --- |
+| `check` | Checks the app definition offline, then asks Slack to validate it. The Slack step skips itself when the credential is not available. | Never |
+| `apply` | Makes the recorded app match the definition, then fails if the installed app lacks a permission in it. | Updates the app |
+| `create` | Creates the app and stores its values. Refuses while the recorded app exists. | Creates an app |
+| `report` | After a failed scheduled run, opens an issue labelled `slack-app-failure` or comments on the open one. After `apply` or `create` passes, closes it. | Never |
+
+`apply` and `create` run only on `main`. `report` is a job of its own so that it still runs
+when `check` fails and `apply` is skipped.
+
+### One run at a time
+
+Each job that contacts Slack renews the Slack credential, and the old one stops working. The
+workflow is therefore in one concurrency group, `slack-app`, that queues runs and cancels
+none in progress. GitHub keeps at most one run waiting in a group: if a third starts while
+one runs and one waits, the waiting one is cancelled in favour of the newest.
+
+### Secrets in logs
+
+GitHub masks stored secrets in logs. Values obtained during a run, such as the renewed
+credential and a new app's signing secret, are masked by the program before anything else is
+printed. Run summaries and issues are built from a fixed list of messages and never from a
+response, because this repository's logs and issues are public.

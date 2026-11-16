@@ -10,6 +10,7 @@ current as the agent, its infrastructure and its workflows change.
 - [CI/CD pipeline](05-ci-cd.md): tests, image build, deployment and branch stacks.
 - [Observability](06-observability.md): logs, traces and metrics.
 - [Common tasks](07-common-tasks.md): change the prompt, the model, tools and permissions.
+- [The STRIDEr Slack app](08-slack-app.md): create, change and repair the Slack app.
 
 ## Reading in Backstage
 
@@ -19,7 +20,8 @@ Markdown files in `docs/handbook/`. Open the component in the catalog and select
 
 This repository intentionally has no `mkdocs.yml`: the central workflow generates the MkDocs
 configuration when it builds the site. The workflows in this repository do not build or publish
-documentation, and pushes that change only `docs/**` or `specs/**` do not run them.
+documentation, and pushes that change only `docs/**` or `specs/**` do not run the agent's
+workflows.
 
 ## Content review
 

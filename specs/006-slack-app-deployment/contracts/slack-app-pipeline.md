@@ -54,7 +54,7 @@ needs `check`, `apply` and `create`, runs with `if: always()`, and only on `main
 - No step prints a secret. Every secret obtained during a job is masked before the next
   step (FR-018).
 
-## 2. Command `pipenv run python scripts/slack_app <command>`
+## 2. Command `pipenv run slack-app <command>`
 
 | Command | Reads | Does | Writes |
 |---|---|---|---|

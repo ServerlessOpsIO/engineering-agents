@@ -131,6 +131,7 @@ scripts/slack_app/
 tests/unit/
 ├── test_slack_definition.py   # New
 ├── test_slack_api.py          # New
+├── test_slack_store.py        # New
 └── test_slack_commands.py     # New: order of renew-store-act; every app state;
                                #      every failure kind
 

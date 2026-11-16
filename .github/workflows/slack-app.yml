@@ -1,0 +1,165 @@
+name: Slack app
+
+# Keeps the STRIDEr Slack app in step with slack/manifest.yaml.
+# Described in docs/handbook/05-ci-cd.md and docs/handbook/08-slack-app.md.
+#
+# This workflow is separate from Main and Branches on purpose: neither can
+# block, slow or cancel the other.
+
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: >-
+          apply makes the recorded app match the app definition. create makes
+          the app; use it for first-time setup or to replace a deleted app.
+        type: choice
+        options:
+          - apply
+          - create
+        default: apply
+  push:
+    paths:
+      - 'slack/**'
+      - 'scripts/slack_app/**'
+      - '.github/workflows/slack-app.yml'
+  schedule:
+    # Once a day. Undoes changes made to the app outside this pipeline.
+    - cron: '17 6 * * *'
+
+# Every job renews the Slack credential, and a refresh token works once. Runs
+# must not overlap, so they queue. Nothing is cancelled.
+concurrency:
+  group: slack-app
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    outputs:
+      failure_kind: ${{ steps.validate.outputs.failure_kind || steps.offline.outputs.failure_kind }}
+      failure_help: ${{ steps.validate.outputs.failure_help || steps.offline.outputs.failure_help }}
+
+    steps:
+      - name: Setup job workspace
+        uses: ServerlessOpsIO/gha-setup-workspace@v2
+
+      - name: Setup Python environment
+        uses: ServerlessOpsIO/gha-setup-python@v1
+        with:
+          python_version: '3.14'
+
+      - name: Check the app definition
+        id: offline
+        run: pipenv run slack-app check
+
+      # Asks Slack whether it accepts the app definition. Changes nothing in
+      # Slack. Skips itself when the credential is not available to the run.
+      - name: Validate with Slack
+        id: validate
+        env:
+          SLACK_CONFIG_REFRESH_TOKEN: ${{ secrets.SLACK_CONFIG_REFRESH_TOKEN }}
+          SLACK_STORE_TOKEN: ${{ secrets.SLACK_STORE_TOKEN }}
+          SLACK_APP_ID: ${{ vars.SLACK_APP_ID }}
+        run: pipenv run slack-app validate
+
+  apply:
+    needs: check
+    if: >-
+      github.ref == 'refs/heads/main' && (
+        github.event_name == 'push' ||
+        github.event_name == 'schedule' ||
+        (github.event_name == 'workflow_dispatch' && inputs.action == 'apply')
+      )
+    runs-on: ubuntu-latest
+    outputs:
+      failure_kind: ${{ steps.apply.outputs.failure_kind }}
+      failure_help: ${{ steps.apply.outputs.failure_help }}
+
+    steps:
+      - name: Setup job workspace
+        uses: ServerlessOpsIO/gha-setup-workspace@v2
+
+      - name: Setup Python environment
+        uses: ServerlessOpsIO/gha-setup-python@v1
+        with:
+          python_version: '3.14'
+
+      - name: Apply the app definition
+        id: apply
+        env:
+          SLACK_CONFIG_REFRESH_TOKEN: ${{ secrets.SLACK_CONFIG_REFRESH_TOKEN }}
+          SLACK_STORE_TOKEN: ${{ secrets.SLACK_STORE_TOKEN }}
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+          SLACK_APP_ID: ${{ vars.SLACK_APP_ID }}
+        run: pipenv run slack-app apply
+
+  create:
+    needs: check
+    if: >-
+      github.ref == 'refs/heads/main' &&
+      github.event_name == 'workflow_dispatch' && inputs.action == 'create'
+    runs-on: ubuntu-latest
+    outputs:
+      failure_kind: ${{ steps.create.outputs.failure_kind }}
+      failure_help: ${{ steps.create.outputs.failure_help }}
+
+    steps:
+      - name: Setup job workspace
+        uses: ServerlessOpsIO/gha-setup-workspace@v2
+
+      - name: Setup Python environment
+        uses: ServerlessOpsIO/gha-setup-python@v1
+        with:
+          python_version: '3.14'
+
+      - name: Create the Slack app
+        id: create
+        env:
+          SLACK_CONFIG_REFRESH_TOKEN: ${{ secrets.SLACK_CONFIG_REFRESH_TOKEN }}
+          SLACK_STORE_TOKEN: ${{ secrets.SLACK_STORE_TOKEN }}
+          SLACK_APP_ID: ${{ vars.SLACK_APP_ID }}
+        run: pipenv run slack-app create
+
+  # A job of its own so that it runs when an earlier job failed or was skipped.
+  # A step inside apply would not run when check fails first.
+  report:
+    needs: [check, apply, create]
+    if: always() && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+
+    steps:
+      - name: Open or close the failure issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          LABEL: slack-app-failure
+          EVENT: ${{ github.event_name }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          FAILED: ${{ contains(needs.*.result, 'failure') }}
+          CHANGED: ${{ needs.apply.result == 'success' || needs.create.result == 'success' }}
+          # The text below comes only from the program's fixed list of failure
+          # kinds, never from a response, because issues here are public.
+          KIND: ${{ needs.create.outputs.failure_kind || needs.apply.outputs.failure_kind || needs.check.outputs.failure_kind || 'unexpected' }}
+          HELP: ${{ needs.create.outputs.failure_help || needs.apply.outputs.failure_help || needs.check.outputs.failure_help || 'Read the log of the run.' }}
+        run: |
+          open_issue=$(gh issue list --label "$LABEL" --state open --json number --jq '.[0].number // empty')
+
+          if [ "$FAILED" = "true" ] && [ "$EVENT" = "schedule" ]; then
+            body=$(printf 'The scheduled run of the Slack app workflow failed.\n\n**Failure:** `%s`\n\n**What to do:** %s\n\n**Run:** %s\n' "$KIND" "$HELP" "$RUN_URL")
+            if [ -n "$open_issue" ]; then
+              gh issue comment "$open_issue" --body "$body"
+            else
+              gh label create "$LABEL" --color B60205 \
+                --description "A scheduled run of the Slack app workflow failed" --force
+              gh issue create --title "Slack app: the scheduled run is failing" \
+                --label "$LABEL" --body "$body"
+            fi
+          elif [ "$CHANGED" = "true" ] && [ -n "$open_issue" ]; then
+            gh issue close "$open_issue" --comment "A later run passed: $RUN_URL"
+          fi

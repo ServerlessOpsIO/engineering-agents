@@ -27,7 +27,7 @@ without an address, credential renewal order, each app state, and each failure k
 ## B. Offline check (US2, US5)
 
 ```bash
-pipenv run python scripts/slack_app check --output /tmp/manifest.json
+pipenv run slack-app check --output /tmp/manifest.json
 ```
 
 Expected: exit 0; the built manifest has no `event_subscriptions`.
@@ -144,4 +144,14 @@ Expected: none found.
 
 ## Results
 
-Not yet run.
+**2026-11-16, on the feature branch, before merging. Run by the author; nothing here
+contacted Slack or GitHub.**
+
+| Scenario | Result |
+|---|---|
+| A. Unit tests | Passed. 153 tests: 18 that existed before and 135 new. |
+| B. Offline check | Passed. The committed files exit 0 and the built manifest has no `event_subscriptions`. A scope with no comment, a `slash_commands` section, an unknown top-level field and an `http://` address each exit 1 with `invalid_definition` and name the place. With `https://example.com/slack/events` set, the built manifest has that address and the four events. Run in a scratch copy; the repository's files were not changed. |
+| K. Nothing on the cloud platform | `template.yaml`, `cfn-parameters.json`, `main.yml` and `branch.yml` are unchanged against `main`. The search for secrets has not been done; there are no runs or issues yet. |
+| C to J | Not run. They need the workflow on `main`, the Slack workspace and the repository's settings, and are the owner's tasks T028 to T030, T033 and T039 to T041. |
+
+The workflow file has only been parsed as YAML. It has never run.
