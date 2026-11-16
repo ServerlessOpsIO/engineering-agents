@@ -1,7 +1,7 @@
 """Writes values to this repository's GitHub secrets and variables with the `gh` command.
 
 The workflow's built-in token cannot write secrets, so a separate token,
-SLACK_STORE_TOKEN, is used. Values are passed on standard input and never as
+SLACK_STORE_TOKEN, is used. Only the creation run writes anything. Values are passed on standard input and never as
 arguments, so they do not appear in a process list.
 """
 

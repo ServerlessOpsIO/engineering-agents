@@ -11,9 +11,7 @@ from slack_app import __main__ as cli
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
-OLD_REFRESH = "xoxe-old-refresh-token"
-NEW_REFRESH = "xoxe-new-refresh-token"
-CONFIG_TOKEN = "xoxe.xoxp-config-token"
+SERVICE_TOKEN = "xoxp-service-token"
 STORE_TOKEN = "github_pat_store-token"
 BOT_TOKEN = "xoxb-bot-token"
 SIGNING_SECRET = "signing-secret-value"
@@ -21,7 +19,7 @@ CLIENT_ID = "1234567890.0987654321"
 CLIENT_SECRET = "client-secret-value"
 VERIFICATION_TOKEN = "verification-token-value"
 SECRETS = [
-    OLD_REFRESH, NEW_REFRESH, CONFIG_TOKEN, STORE_TOKEN, BOT_TOKEN, SIGNING_SECRET, CLIENT_ID,
+    SERVICE_TOKEN, STORE_TOKEN, BOT_TOKEN, SIGNING_SECRET, CLIENT_ID,
     CLIENT_SECRET, VERIFICATION_TOKEN,
 ]
 
@@ -45,17 +43,14 @@ class FakeSlack:
         if name in self.fail:
             raise self.fail[name]
 
-    def rotate(self, refresh_token):
-        self._do("rotate")
-        self.sent["refresh_token"] = refresh_token
-        return CONFIG_TOKEN, NEW_REFRESH
-
     def validate(self, token, manifest_json, app_id=None):
         self._do("validate")
+        self.sent["token"] = token
         self.sent["validate_app_id"] = app_id
 
     def export(self, token, app_id):
         self._do("export")
+        self.sent["token"] = token
         return self.exported if self.exported is not None else {"_slack_default": True}
 
     def update(self, token, app_id, manifest_json):
@@ -113,7 +108,7 @@ class Run:
         self.summary_file = tmp_path / "summary.md"
         self.output_file = tmp_path / "output.txt"
         self.env = {
-            "SLACK_CONFIG_REFRESH_TOKEN": OLD_REFRESH,
+            "SLACK_SERVICE_TOKEN": SERVICE_TOKEN,
             "SLACK_STORE_TOKEN": STORE_TOKEN,
             "SLACK_APP_ID": "A0OLD",
             "SLACK_BOT_TOKEN": BOT_TOKEN,
@@ -191,23 +186,19 @@ def test_wrong_usage_exits_with_2(run):
     assert raised.value.code == 2
 
 
-# the order every command that contacts Slack follows
+# what every command that contacts Slack has in common
 
 @pytest.mark.parametrize("command", ["validate", "apply", "create"])
-def test_the_new_refresh_token_is_stored_before_anything_else_is_asked_of_slack(run, command):
-    run.env.pop("SLACK_APP_ID") if command == "create" else None
+def test_the_service_token_is_sent_to_slack_and_never_stored(run, command):
     run(command)
-    assert run.log[:2] == ["rotate", "store:SLACK_CONFIG_REFRESH_TOKEN"]
-    assert run.slack.sent["refresh_token"] == OLD_REFRESH
-    assert run.store.secrets["SLACK_CONFIG_REFRESH_TOKEN"] == NEW_REFRESH
+    assert run.slack.sent["token"] == SERVICE_TOKEN
+    assert "SLACK_SERVICE_TOKEN" not in run.store.secrets
 
 
-@pytest.mark.parametrize("command", ["validate", "apply", "create"])
-def test_nothing_else_happens_when_the_new_refresh_token_cannot_be_stored(run, command):
-    run.store.fail_on.add("SLACK_CONFIG_REFRESH_TOKEN")
-    assert run(command).code == 1
-    assert run.kind == "store_failed"
-    assert run.log == ["rotate", "store:SLACK_CONFIG_REFRESH_TOKEN"]
+@pytest.mark.parametrize("command", ["validate", "apply"])
+def test_validating_and_applying_write_nothing_to_github(run, command):
+    assert run(command).code == 0
+    assert run.store.secrets == {} and run.store.variables == {}
 
 
 @pytest.mark.parametrize("command", ["validate", "apply", "create"])
@@ -219,35 +210,37 @@ def test_a_bad_definition_stops_before_slack_is_contacted(run, command):
 
 
 @pytest.mark.parametrize("command", ["apply", "create"])
-def test_a_missing_refresh_token_is_a_missing_credential(run, command):
-    run.env.pop("SLACK_CONFIG_REFRESH_TOKEN")
+def test_a_missing_service_token_is_a_missing_credential(run, command):
+    run.env.pop("SLACK_SERVICE_TOKEN")
     assert run(command).code == 1
     assert run.kind == "credential_missing"
-    assert "SLACK_CONFIG_REFRESH_TOKEN is not set" in run.summary
+    assert "SLACK_SERVICE_TOKEN is not set" in run.summary
     assert run.log == []
 
 
-@pytest.mark.parametrize("command", ["validate", "apply", "create"])
-def test_the_credential_is_not_renewed_when_its_replacement_could_not_be_stored(run, command):
+def test_nothing_is_created_when_the_apps_values_could_not_be_stored(run):
+    run.env.pop("SLACK_APP_ID")
     run.env.pop("SLACK_STORE_TOKEN")
-    assert run(command).code == 1
+    assert run("create").code == 1
     assert run.kind == "credential_missing"
     assert "SLACK_STORE_TOKEN is not set" in run.summary
     assert run.log == []
 
 
-@pytest.mark.parametrize("command", ["validate", "apply", "create"])
-def test_a_refused_credential_is_reported_as_itself(run, command):
-    run.slack.fail["rotate"] = SlackAppError("credential_rejected", ["tooling.tokens.rotate: x"])
+@pytest.mark.parametrize("command, first_call", [
+    ("validate", "validate"), ("apply", "export"), ("create", "export"),
+])
+def test_a_refused_credential_is_reported_as_itself(run, command, first_call):
+    run.slack.fail[first_call] = SlackAppError("credential_rejected", [f"{first_call}: x"])
     assert run(command).code == 1
     assert run.kind == "credential_rejected"
-    assert run.log == ["rotate"]
+    assert run.log == [first_call]
 
 
 # validate
 
 def test_validate_without_the_credential_skips_slack_and_passes(run):
-    run.env.pop("SLACK_CONFIG_REFRESH_TOKEN")
+    run.env.pop("SLACK_SERVICE_TOKEN")
     assert run("validate").code == 0
     assert run.log == []
     assert "Slack validation was skipped" in run.summary
@@ -255,7 +248,7 @@ def test_validate_without_the_credential_skips_slack_and_passes(run):
 
 def test_validate_asks_slack_and_names_the_recorded_app(run):
     assert run("validate").code == 0
-    assert run.log == ["rotate", "store:SLACK_CONFIG_REFRESH_TOKEN", "validate"]
+    assert run.log == ["validate"]
     assert run.slack.sent["validate_app_id"] == "A0OLD"
 
 
@@ -313,9 +306,7 @@ def test_apply_to_an_app_that_is_not_installed_updates_and_passes(run):
 
 def test_apply_to_an_installed_app_in_step_updates_and_passes(run):
     assert run("apply").code == 0
-    assert run.log == [
-        "rotate", "store:SLACK_CONFIG_REFRESH_TOKEN", "export", "update", "auth_test",
-    ]
+    assert run.log == ["export", "update", "auth_test"]
     assert run.slack.sent["manifest"]["display_information"]["name"] == "STRIDEr"
     assert "holds every permission" in run.summary
 
@@ -367,7 +358,7 @@ def test_create_with_no_app_recorded_creates_and_stores_the_apps_values(run):
     run.env.pop("SLACK_APP_ID")
     assert run("create").code == 0
     assert run.log == [
-        "rotate", "store:SLACK_CONFIG_REFRESH_TOKEN", "create", "store:SLACK_APP_ID",
+        "create", "store:SLACK_APP_ID",
         "store:SLACK_SIGNING_SECRET", "store:SLACK_CLIENT_ID", "store:SLACK_CLIENT_SECRET",
     ]
     assert run.store.variables == {"SLACK_APP_ID": "A0NEW"}
@@ -430,7 +421,6 @@ def test_create_says_which_app_was_made_when_a_value_cannot_be_stored(run, name)
     ("validate", lambda run: None),
     ("apply", lambda run: None),
     ("apply", lambda run: setattr(run.slack, "scopes", set())),
-    ("apply", lambda run: run.store.fail_on.add("SLACK_CONFIG_REFRESH_TOKEN")),
     ("create", lambda run: run.env.pop("SLACK_APP_ID")),
     ("create", lambda run: None),
     ("create", lambda run: (run.env.pop("SLACK_APP_ID"),
@@ -444,16 +434,11 @@ def test_no_secret_is_published(run, command, change):
 
 
 def test_an_unexpected_error_reports_only_its_type(run):
-    def explode(refresh_token):
-        raise RuntimeError(f"failed with {OLD_REFRESH}")
+    def explode(token, app_id):
+        raise RuntimeError(f"failed with {token}")
 
-    run.slack.rotate = explode
+    run.slack.export = explode
     assert run("apply").code == 1
     assert run.kind == "unexpected"
     assert "RuntimeError was raised" in run.summary
-    assert OLD_REFRESH not in run.published
-
-
-def test_the_new_tokens_are_masked_as_soon_as_they_are_known(run):
-    run("apply")
-    assert run.printed[:2] == [f"::add-mask::{CONFIG_TOKEN}", f"::add-mask::{NEW_REFRESH}"]
+    assert SERVICE_TOKEN not in run.published

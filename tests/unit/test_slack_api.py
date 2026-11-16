@@ -8,8 +8,7 @@ import pytest
 from slack_app import SlackAppError
 from slack_app.slack_api import SlackApi
 
-CONFIG_TOKEN = "xoxe.xoxp-config-token-value"
-REFRESH_TOKEN = "xoxe-refresh-token-value"
+CONFIG_TOKEN = "xoxp-service-token-value"
 BOT_TOKEN = "xoxb-bot-token-value"
 MANIFEST = '{"display_information": {"name": "STRIDEr"}}'
 
@@ -40,16 +39,6 @@ def ok(payload=None, headers=None):
 
 def error(code, **extra):
     return 200, {}, {"ok": False, "error": code, **extra}
-
-
-def test_rotate_returns_the_new_tokens_and_sends_only_the_refresh_token():
-    slack = FakeSlack(ok({"token": "new-config", "refresh_token": "new-refresh"}))
-    assert SlackApi(slack).rotate(REFRESH_TOKEN) == ("new-config", "new-refresh")
-    assert slack.calls == [{
-        "method": "tooling.tokens.rotate",
-        "authorization": None,
-        "params": {"refresh_token": REFRESH_TOKEN},
-    }]
 
 
 def test_validate_sends_the_manifest_and_the_app_id_when_there_is_one():
@@ -124,10 +113,10 @@ def test_an_invalid_manifest_lists_each_problem_with_its_place():
 
 
 @pytest.mark.parametrize(
-    "code", ["invalid_refresh_token", "token_expired", "token_revoked", "invalid_auth"]
+    "code", ["token_expired", "token_revoked", "invalid_auth", "not_allowed_token_type"]
 )
 def test_a_refused_pipeline_credential(code):
-    assert failure(error(code), lambda api: api.rotate(REFRESH_TOKEN)).kind == "credential_rejected"
+    assert failure(error(code), lambda api: api.export(CONFIG_TOKEN, "A1")).kind == "credential_rejected"
     assert failure(
         error(code), lambda api: api.update(CONFIG_TOKEN, "A123", MANIFEST)
     ).kind == "credential_rejected"
@@ -193,7 +182,6 @@ def test_an_answer_that_is_not_json_is_unexpected():
 ])
 def test_no_token_appears_in_any_error(answer):
     calls = [
-        lambda api: api.rotate(REFRESH_TOKEN),
         lambda api: api.validate(CONFIG_TOKEN, MANIFEST, "A1"),
         lambda api: api.update(CONFIG_TOKEN, "A1", MANIFEST),
         lambda api: api.auth_test_scopes(BOT_TOKEN),
@@ -201,5 +189,5 @@ def test_no_token_appears_in_any_error(answer):
     for call in calls:
         found = failure(answer, call)
         text = " ".join([str(found), found.kind, *found.details])
-        for token in (CONFIG_TOKEN, REFRESH_TOKEN, BOT_TOKEN):
+        for token in (CONFIG_TOKEN, BOT_TOKEN):
             assert token not in text

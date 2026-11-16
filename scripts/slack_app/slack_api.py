@@ -21,8 +21,8 @@ UNAVAILABLE = {
 }
 # Codes that mean the token was refused.
 REFUSED = {
-    "invalid_auth", "not_authed", "token_expired", "token_revoked", "invalid_refresh_token",
-    "account_inactive", "not_allowed_token_type",
+    "invalid_auth", "not_authed", "token_expired", "token_revoked", "account_inactive",
+    "not_allowed_token_type",
 }
 
 
@@ -81,17 +81,6 @@ class SlackApi:
         if code == "app_not_found":
             raise SlackAppError("app_gone", [f"{method}: {code}"])
         raise SlackAppError("unexpected", [f"{method}: Slack answered {code}"])
-
-    def rotate(self, refresh_token):
-        """Renew the pipeline credential. Returns (configuration token, new refresh token)."""
-        answer, _ = self._call(
-            "tooling.tokens.rotate", None, {"refresh_token": refresh_token},
-            "credential_rejected",
-        )
-        token, new_refresh_token = answer.get("token"), answer.get("refresh_token")
-        if not token or not new_refresh_token:
-            raise SlackAppError("unexpected", ["tooling.tokens.rotate: no tokens in the answer"])
-        return token, new_refresh_token
 
     def validate(self, token, manifest_json, app_id=None):
         params = {"manifest": manifest_json}

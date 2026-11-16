@@ -20,14 +20,13 @@ FAILURE_HELP = {
         f"it. See 'First-time setup' in {HANDBOOK}."
     ),
     "credential_rejected": (
-        "Slack refused the pipeline's refresh token. Issue a new app configuration "
-        "token in Slack and store its refresh token as SLACK_CONFIG_REFRESH_TOKEN. "
+        "Slack refused the pipeline's service token. Get a new one with "
+        "`slack auth token` and store it as SLACK_SERVICE_TOKEN. "
         f"See 'Recovery' in {HANDBOOK}."
     ),
     "store_failed": (
         "A value could not be written to GitHub. Check SLACK_STORE_TOKEN and its "
-        "expiry date. If the value was a new refresh token, the stored one no longer "
-        f"works: follow 'Recovery' in {HANDBOOK}."
+        f"expiry date, then store the value by hand: see 'Recovery' in {HANDBOOK}."
     ),
     "app_not_recorded": (
         "No Slack app is recorded (SLACK_APP_ID is not set). Start the 'Slack app' "

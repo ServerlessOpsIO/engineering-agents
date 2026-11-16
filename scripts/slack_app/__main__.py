@@ -21,7 +21,7 @@ from slack_app import FAILURE_HELP, SlackAppError, definition  # noqa: E402
 from slack_app.slack_api import SlackApi  # noqa: E402
 from slack_app.store import Store, mask  # noqa: E402
 
-REFRESH_TOKEN = "SLACK_CONFIG_REFRESH_TOKEN"
+SERVICE_TOKEN = "SLACK_SERVICE_TOKEN"
 STORE_TOKEN = "SLACK_STORE_TOKEN"
 APP_ID = "SLACK_APP_ID"
 BOT_TOKEN = "SLACK_BOT_TOKEN"
@@ -48,23 +48,15 @@ class Context:
         mask(value, env=self.env, out=self.out)
 
 
-def _renew(context):
-    """Renew the pipeline credential and store its replacement before anything else.
+def _service_token(context):
+    """Return the pipeline's Slack credential.
 
-    The refresh token is replaced each time it is used, so the new one must be
-    stored at once. The store's own credential is checked first: renewing
-    without being able to store would throw the only working refresh token away.
+    It is a Slack CLI service token: long-lived, not replaced when used, and
+    never written by this program.
     """
-    refresh_token = context.env.get(REFRESH_TOKEN)
-    if not refresh_token:
-        raise SlackAppError("credential_missing", [f"{REFRESH_TOKEN} is not set"])
-    if not context.env.get(STORE_TOKEN):
-        raise SlackAppError("credential_missing", [f"{STORE_TOKEN} is not set"])
-
-    token, new_refresh_token = context.api.rotate(refresh_token)
-    context.mask(token)
-    context.mask(new_refresh_token)
-    context.store.set_secret(REFRESH_TOKEN, new_refresh_token)
+    token = context.env.get(SERVICE_TOKEN)
+    if not token:
+        raise SlackAppError("credential_missing", [f"{SERVICE_TOKEN} is not set"])
     return token
 
 
@@ -96,13 +88,13 @@ def check(context, args):
 
 def validate(context, args):
     built = definition.check(context.root)
-    if not context.env.get(REFRESH_TOKEN):
+    if not context.env.get(SERVICE_TOKEN):
         context.note(
             "The app definition passed the offline check. Slack validation was skipped: "
-            f"{REFRESH_TOKEN} is not available to this run."
+            f"{SERVICE_TOKEN} is not available to this run."
         )
         return
-    token = _renew(context)
+    token = _service_token(context)
     context.api.validate(token, definition.to_json(built), context.env.get(APP_ID) or None)
     context.note("The app definition passed the offline check and Slack's validation.")
 
@@ -113,7 +105,7 @@ def apply(context, args):
     if not app_id:
         raise SlackAppError("app_not_recorded", [f"{APP_ID} is not set"])
 
-    token = _renew(context)
+    token = _service_token(context)
     # Raises app_gone when Slack does not know the app. An outage or a refused
     # credential raises its own kind, and never leads to creating an app.
     exported = context.api.export(token, app_id)
@@ -144,7 +136,11 @@ def apply(context, args):
 
 def create(context, args):
     built = definition.check(context.root)
-    token = _renew(context)
+    token = _service_token(context)
+    # Checked before anything is created: an app whose values cannot be stored
+    # would have to be recovered by hand.
+    if not context.env.get(STORE_TOKEN):
+        raise SlackAppError("credential_missing", [f"{STORE_TOKEN} is not set"])
 
     recorded = context.env.get(APP_ID)
     if recorded:
