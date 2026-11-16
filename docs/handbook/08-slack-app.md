@@ -19,7 +19,7 @@ first real test of the pipeline; record what happens in
 | `slack/manifest.yaml` | The app definition: name, bot user, permissions and events. The single source of truth. |
 | `slack/settings.json` | The event delivery address, `event_request_url`. Empty for now. |
 | `slack/manifest.schema.json` | A copy of Slack's published schema for app definitions, used by the check. |
-| `scripts/slack_app/` | The program the pipeline runs: `pipenv run slack-app <command>`. |
+| `scripts/slack_app/` | The program the pipeline runs around Slack's GitHub Action: `pipenv run slack-app <command>`. |
 | `.github/workflows/slack-app.yml` | The `Slack app` workflow. See [CI/CD pipeline](05-ci-cd.md#the-slack-app-workflow). |
 
 The pipeline makes the app in Slack match `slack/manifest.yaml`. **Do not change the app in
@@ -104,6 +104,23 @@ GitHub disables scheduled workflows in a public repository after 60 days without
 in the repository, and emails you first. Nothing in this repository can report that, because
 nothing runs. To switch it back on, open **Actions**, **Slack app**, and select **Enable
 workflow**.
+
+## Running it by hand
+
+The pipeline is the normal route. The same program can do the whole job from a checkout,
+without Slack's GitHub Action, which is useful for trying a change or for the first setup:
+
+```bash
+read -s SLACK_SERVICE_TOKEN && export SLACK_SERVICE_TOKEN
+export SLACK_APP_ID=<the app's ID>      # leave unset before the app exists
+
+pipenv run slack-app check       # offline; needs no credential
+pipenv run slack-app validate    # asks Slack; changes nothing
+pipenv run slack-app apply       # updates the app; add SLACK_BOT_TOKEN to check permissions
+```
+
+`create` also runs by hand. It needs `SLACK_STORE_TOKEN` and `GITHUB_REPOSITORY` as well,
+and writes the new app's values to GitHub, not to your machine.
 
 ## Changing the app
 

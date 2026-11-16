@@ -10,8 +10,10 @@ Keep the STRIDEr Slack app's definition in the repository as a Slack app manifes
 a pipeline that validates it on branches, applies it to Slack when it changes on `main`,
 reapplies it once a day, and creates the app only when the owner starts a run by hand.
 
-The pipeline calls Slack's Manifest API directly through a small Python program in this
-repository; Terraform was compared and rejected (research, Decision 1). It lives in a new
+The pipeline uses Slack's Manifest API directly; Terraform was compared and rejected
+(research, Decision 1). Slack's own GitHub Action makes the two everyday calls, validate
+and update, and a small Python program in this repository does the rest (research,
+Decision 13). It lives in a new
 workflow file, so it cannot block or be blocked by the agent's build and deployment. The
 credential for changing Slack apps is a Slack CLI service token, which does not expire and
 is only read by the pipeline (research, Decision 12, which replaced the original design). The app ID, signing secret and
@@ -120,7 +122,8 @@ slack/
 └── manifest.schema.json       # New: copy of Slack's published schema, version 2.0.0
 
 scripts/slack_app/
-├── __main__.py                # New: commands check, validate, apply, create; exit codes;
+├── __main__.py                # New: commands check, prepare, result, verify, create, and
+│                              #      validate and apply for running by hand; exit codes;
 │                              #      run summary and failure kind output
 ├── definition.py              # New: read both files, offline check, build the manifest
 ├── slack_api.py               # New: validate, export, update, create, auth.test;
@@ -135,7 +138,8 @@ tests/unit/
 └── test_slack_commands.py     # New: every command and app state;
                                #      every failure kind
 
-.github/workflows/slack-app.yml   # New: jobs check, apply, create, report
+.github/workflows/slack-app.yml   # New: jobs check, apply, create, report; uses
+                                  #      slackapi/slack-github-action for validate and update
 
 Pipfile, Pipfile.lock          # PyYAML and jsonschema added to dev-packages
 pytest.ini                     # pythonpath gains scripts

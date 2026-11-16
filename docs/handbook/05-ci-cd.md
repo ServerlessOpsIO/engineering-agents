@@ -90,13 +90,32 @@ any other change.
 
 | Job | What it does | Changes Slack |
 | --- | --- | --- |
-| `check` | Checks the app definition offline, then asks Slack to validate it. The Slack step skips itself when the credential is not available. | Never |
-| `apply` | Makes the recorded app match the definition, then fails if the installed app lacks a permission in it. | Updates the app |
+| `check` | Checks the app definition offline, then asks Slack to validate it. The Slack steps are skipped when the credential is not available. | Never |
+| `apply` | Confirms the recorded app exists, updates it to match the definition, then fails if the installed app lacks a permission in it. | Updates the app |
 | `create` | Creates the app and stores its values. Refuses while the recorded app exists. | Creates an app |
 | `report` | After a failed scheduled run, opens an issue labelled `slack-app-failure` or comments on the open one. After `apply` or `create` passes, closes it. | Never |
 
 `apply` and `create` run only on `main`. `report` is a job of its own so that it still runs
 when `check` fails and `apply` is skipped.
+
+### Who calls Slack
+
+The two everyday calls, validating and updating, are made by Slack's own GitHub Action,
+`slackapi/slack-github-action`, pinned to the commit of v4.0.0. The project's program,
+`pipenv run slack-app`, does what the action cannot:
+
+| Step | Done by | Why |
+| --- | --- | --- |
+| Offline check; build the request | Program (`check`, `prepare`) | Slack's schema, this project's rules, and holding events back until there is an address. |
+| Confirm the app exists before updating | Program (`prepare`) | Tells a deleted app apart from an outage, so nothing recreates an app by mistake. |
+| `apps.manifest.validate`, `apps.manifest.update` | Slack's action | |
+| Read Slack's answer | Program (`result`) | Turns the answer into one failure kind with what to do, which also feeds the failure issue. |
+| Check installed permissions | Program (`verify`) | Needs a response header the action does not return. |
+| Create the app and store its values | Program (`create`) | Slack's answer holds the app's secrets, and the action would expose the whole answer as a step output. |
+
+The action's step passes even when Slack rejects the call; the "Read Slack's answer" step
+that follows is the one that fails. Only the error fields of Slack's answer are passed to
+it, never the whole answer, because a step's inputs are shown in its log.
 
 ### One run at a time
 
@@ -117,3 +136,7 @@ GitHub masks stored secrets in logs. Values obtained during a run, such as a new
 app's signing secret, are masked by the program before anything else is
 printed. Run summaries and issues are built from a fixed list of messages and never from a
 response, because this repository's logs and issues are public.
+
+Do not re-run the `Slack app` workflow with **Enable debug logging**. Debug logging prints
+every step output, and the action's output after an update is Slack's whole answer, which
+may hold the app's secrets.

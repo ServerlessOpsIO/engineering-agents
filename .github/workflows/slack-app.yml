@@ -39,9 +39,13 @@ permissions:
 jobs:
   check:
     runs-on: ubuntu-latest
+    env:
+      # A secret cannot be tested in a step's `if`, so it is tested here.
+      HAS_SERVICE_TOKEN: ${{ secrets.SLACK_SERVICE_TOKEN != '' }}
+      SLACK_APP_ID: ${{ vars.SLACK_APP_ID }}
     outputs:
-      failure_kind: ${{ steps.validate.outputs.failure_kind || steps.offline.outputs.failure_kind }}
-      failure_help: ${{ steps.validate.outputs.failure_help || steps.offline.outputs.failure_help }}
+      failure_kind: ${{ steps.result.outputs.failure_kind || steps.offline.outputs.failure_kind }}
+      failure_help: ${{ steps.result.outputs.failure_help || steps.offline.outputs.failure_help }}
 
     steps:
       - name: Setup job workspace
@@ -52,18 +56,39 @@ jobs:
         with:
           python_version: '3.14'
 
+      # Slack's published schema and this project's own rules. Contacts nothing.
       - name: Check the app definition
         id: offline
-        run: pipenv run slack-app check
+        run: pipenv run slack-app check --payload "$RUNNER_TEMP/slack-validate.json"
 
       # Asks Slack whether it accepts the app definition. Changes nothing in
-      # Slack. Skips itself when the credential is not available to the run.
+      # Slack. The step passes even when Slack says no; the next step decides.
       - name: Validate with Slack
-        id: validate
+        id: slack
+        if: env.HAS_SERVICE_TOKEN == 'true'
+        uses: slackapi/slack-github-action@dcb1066f776dd043e64d0e8ba94ca15cc7e1875d # v4.0.0
+        with:
+          method: apps.manifest.validate
+          token: ${{ secrets.SLACK_SERVICE_TOKEN }}
+          payload-file-path: ${{ runner.temp }}/slack-validate.json
+
+      # Only these fields of Slack's answer are passed on, never the whole
+      # answer: a step's inputs are shown in its log, and this log is public.
+      - name: Read Slack's answer
+        id: result
+        if: env.HAS_SERVICE_TOKEN == 'true'
         env:
-          SLACK_SERVICE_TOKEN: ${{ secrets.SLACK_SERVICE_TOKEN }}
-          SLACK_APP_ID: ${{ vars.SLACK_APP_ID }}
-        run: pipenv run slack-app validate
+          SLACK_ACTION_OK: ${{ steps.slack.outputs.ok }}
+          SLACK_ACTION_ERROR: ${{ fromJSON(steps.slack.outputs.response || '{}').error }}
+          SLACK_ACTION_ERRORS: ${{ toJSON(fromJSON(steps.slack.outputs.response || '{}').errors) }}
+          SLACK_ACTION_STATUS: ${{ fromJSON(steps.slack.outputs.response || '{}').statusCode }}
+          SLACK_ACTION_CODE: ${{ fromJSON(steps.slack.outputs.response || '{}').code }}
+          SLACK_ACTION_RETRY_AFTER: ${{ fromJSON(steps.slack.outputs.response || '{}').retryAfter }}
+        run: pipenv run slack-app result --method apps.manifest.validate
+
+      - name: Note that Slack validation was skipped
+        if: env.HAS_SERVICE_TOKEN != 'true'
+        run: echo "Slack validation was skipped. SLACK_SERVICE_TOKEN is not available to this run." >> "$GITHUB_STEP_SUMMARY"
 
   apply:
     needs: check
@@ -75,8 +100,8 @@ jobs:
       )
     runs-on: ubuntu-latest
     outputs:
-      failure_kind: ${{ steps.apply.outputs.failure_kind }}
-      failure_help: ${{ steps.apply.outputs.failure_help }}
+      failure_kind: ${{ steps.verify.outputs.failure_kind || steps.result.outputs.failure_kind || steps.prepare.outputs.failure_kind }}
+      failure_help: ${{ steps.verify.outputs.failure_help || steps.result.outputs.failure_help || steps.prepare.outputs.failure_help }}
 
     steps:
       - name: Setup job workspace
@@ -87,13 +112,40 @@ jobs:
         with:
           python_version: '3.14'
 
-      - name: Apply the app definition
-        id: apply
+      # Confirms the recorded app still exists before anything is sent, so a
+      # deleted app is reported as that and never mistaken for an outage.
+      - name: Prepare the update
+        id: prepare
         env:
           SLACK_SERVICE_TOKEN: ${{ secrets.SLACK_SERVICE_TOKEN }}
-          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
           SLACK_APP_ID: ${{ vars.SLACK_APP_ID }}
-        run: pipenv run slack-app apply
+        run: pipenv run slack-app prepare --payload "$RUNNER_TEMP/slack-update.json"
+
+      - name: Update the Slack app
+        id: slack
+        uses: slackapi/slack-github-action@dcb1066f776dd043e64d0e8ba94ca15cc7e1875d # v4.0.0
+        with:
+          method: apps.manifest.update
+          token: ${{ secrets.SLACK_SERVICE_TOKEN }}
+          payload-file-path: ${{ runner.temp }}/slack-update.json
+
+      - name: Read Slack's answer
+        id: result
+        env:
+          SLACK_ACTION_OK: ${{ steps.slack.outputs.ok }}
+          SLACK_ACTION_ERROR: ${{ fromJSON(steps.slack.outputs.response || '{}').error }}
+          SLACK_ACTION_ERRORS: ${{ toJSON(fromJSON(steps.slack.outputs.response || '{}').errors) }}
+          SLACK_ACTION_STATUS: ${{ fromJSON(steps.slack.outputs.response || '{}').statusCode }}
+          SLACK_ACTION_CODE: ${{ fromJSON(steps.slack.outputs.response || '{}').code }}
+          SLACK_ACTION_RETRY_AFTER: ${{ fromJSON(steps.slack.outputs.response || '{}').retryAfter }}
+        run: pipenv run slack-app result --method apps.manifest.update
+
+      # Fails when the installed app lacks a permission the definition has.
+      - name: Check the installed app's permissions
+        id: verify
+        env:
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+        run: pipenv run slack-app verify
 
   create:
     needs: check

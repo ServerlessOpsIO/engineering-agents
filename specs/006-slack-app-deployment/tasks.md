@@ -173,6 +173,18 @@ written and done. Where they mention `rotate`, renewing, storing a new refresh t
 - [X] T046 Update `docs/handbook/08-slack-app.md`, `03-configuration.md` and `05-ci-cd.md`, and `spec.md`, `plan.md`, `research.md`, `data-model.md`, `contracts/slack-app-pipeline.md` and `quickstart.md` in `specs/006-slack-app-deployment/`
 - [ ] T047 **(owner)** During T029, confirm that `create`, `apply` (which calls `export` and `update`) and the installed-permissions check all work with the service token, and record the result in `specs/006-slack-app-deployment/research.md` (Decision 12, "Checked")
 
+## Change after implementation: Slack's GitHub Action (2026-11-16)
+
+The owner then chose to have Slack's official action make the validate and update calls
+(research, Decision 13).
+
+- [X] T048 Make the Slack error classification in `scripts/slack_app/slack_api.py` a function, `failure`, that also understands what Slack's GitHub Action reports when no answer came back (an HTTP status, a rate limit, a network error)
+- [X] T049 Add to `scripts/slack_app/__main__.py`: `check --payload FILE`; `prepare --payload FILE` (offline check, confirm the recorded app exists, write the request); `result --method METHOD` (read the action's answer from `SLACK_ACTION_*` and pass or fail with one failure kind, printing nothing from the answer); `verify` (installed permissions). Keep `validate` and `apply` for running by hand, built from the same functions
+- [X] T050 Add tests for T048 and T049 to `tests/unit/test_slack_commands.py`
+- [X] T051 Rewrite the `check` and `apply` jobs in `.github/workflows/slack-app.yml` to call `slackapi/slack-github-action` at the commit of v4.0.0 for `apps.manifest.validate` and `apps.manifest.update`, passing only the error fields of its answer to `slack-app result`
+- [X] T052 Update `docs/handbook/05-ci-cd.md` and `08-slack-app.md`, and `plan.md`, `research.md` and `contracts/slack-app-pipeline.md` in `specs/006-slack-app-deployment/`
+- [ ] T053 **(owner)** After pushing, confirm the `check` job's "Validate with Slack" and "Read Slack's answer" steps pass on the branch; after merging, confirm the same for `apply`. Record both in `specs/006-slack-app-deployment/quickstart.md`
+
 ## Dependencies & Execution Order
 
 ### Phase dependencies

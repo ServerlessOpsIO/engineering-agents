@@ -335,7 +335,7 @@ def test_apply_reports_a_refused_bot_token_as_itself_and_not_as_a_missing_permis
 def test_apply_says_when_a_change_made_outside_the_pipeline_was_undone(run):
     run.slack.exported = {"display_information": {"name": "Renamed by hand"}}
     assert run("apply").code == 0
-    assert "A change made outside the pipeline has been undone" in run.summary
+    assert "A change made outside the pipeline is being undone" in run.summary
 
 
 def test_apply_does_not_call_slacks_added_defaults_a_change(run):
@@ -350,6 +350,142 @@ def test_apply_does_not_call_slacks_added_defaults_a_change(run):
 def test_apply_holds_events_back_until_there_is_an_address(run):
     run("apply")
     assert "event_subscriptions" not in run.slack.sent["manifest"]["settings"]
+
+
+# the commands the workflow runs around Slack's GitHub Action
+
+def test_check_writes_the_request_for_the_action(run, tmp_path):
+    target = tmp_path / "payload.json"
+    assert run("check", "--payload", str(target)).code == 0
+    payload = json.loads(target.read_text())
+    assert payload["app_id"] == "A0OLD"
+    assert json.loads(payload["manifest"])["display_information"]["name"] == "STRIDEr"
+    assert run.log == []
+
+
+def test_check_leaves_the_app_id_out_of_the_request_before_an_app_is_recorded(run, tmp_path):
+    run.env.pop("SLACK_APP_ID")
+    target = tmp_path / "payload.json"
+    assert run("check", "--payload", str(target)).code == 0
+    assert set(json.loads(target.read_text())) == {"manifest"}
+
+
+def test_prepare_confirms_the_app_exists_and_writes_the_request_without_changing_slack(
+    run, tmp_path
+):
+    target = tmp_path / "payload.json"
+    assert run("prepare", "--payload", str(target)).code == 0
+    assert run.log == ["export"]
+    payload = json.loads(target.read_text())
+    assert payload["app_id"] == "A0OLD"
+    assert "event_subscriptions" not in json.loads(payload["manifest"])["settings"]
+
+
+def test_prepare_with_no_app_recorded_fails_and_writes_no_request(run, tmp_path):
+    run.env.pop("SLACK_APP_ID")
+    target = tmp_path / "payload.json"
+    assert run("prepare", "--payload", str(target)).code == 1
+    assert run.kind == "app_not_recorded"
+    assert not target.exists()
+
+
+@pytest.mark.parametrize("kind", ["app_gone", "slack_unavailable", "credential_rejected"])
+def test_prepare_stops_the_update_when_the_app_cannot_be_confirmed(run, tmp_path, kind):
+    run.slack.fail["export"] = SlackAppError(kind, ["apps.manifest.export: x"])
+    target = tmp_path / "payload.json"
+    assert run("prepare", "--payload", str(target)).code == 1
+    assert run.kind == kind
+    assert not target.exists()
+
+
+def test_prepare_says_when_a_change_made_outside_the_pipeline_is_being_undone(run, tmp_path):
+    run.slack.exported = {"display_information": {"name": "Renamed by hand"}}
+    assert run("prepare", "--payload", str(tmp_path / "p.json")).code == 0
+    assert "A change made outside the pipeline is being undone" in run.summary
+
+
+def action_answer(run, ok, error="", errors=None, status="", code="", retry_after=""):
+    """Set what the workflow passes on from the outputs of Slack's GitHub Action."""
+    run.env.update({
+        "SLACK_ACTION_OK": ok,
+        "SLACK_ACTION_ERROR": error,
+        "SLACK_ACTION_ERRORS": "null" if errors is None else json.dumps(errors),
+        "SLACK_ACTION_STATUS": status,
+        "SLACK_ACTION_CODE": code,
+        "SLACK_ACTION_RETRY_AFTER": retry_after,
+    })
+
+
+def test_result_passes_when_slack_accepted_the_call(run):
+    action_answer(run, "true")
+    assert run("result", "--method", "apps.manifest.update").code == 0
+    assert "Slack accepted apps.manifest.update" in run.summary
+    assert run.log == []
+
+
+def test_result_reports_what_slack_rejected_with_its_place(run):
+    action_answer(run, "false", "invalid_manifest", [
+        {"message": "Unknown scope not:a:scope", "pointer": "/oauth_config/scopes/bot/5"},
+    ])
+    assert run("result", "--method", "apps.manifest.validate").code == 1
+    assert run.kind == "invalid_definition"
+    assert "/oauth_config/scopes/bot/5: Unknown scope not:a:scope" in run.summary
+
+
+@pytest.mark.parametrize("answer, kind", [
+    ({"error": "invalid_auth"}, "credential_rejected"),
+    ({"error": "not_allowed_token_type"}, "credential_rejected"),
+    ({"error": "app_not_found"}, "app_gone"),
+    ({"error": "ratelimited"}, "slack_unavailable"),
+    ({"error": "something_new"}, "unexpected"),
+    ({"error": "invalid_manifest", "errors": "not a list"}, "invalid_definition"),
+    ({"code": "slack_webapi_http_error", "status": "503"}, "slack_unavailable"),
+    ({"code": "slack_webapi_rate_limited_error", "retry_after": "30"}, "slack_unavailable"),
+    ({"code": "ENOTFOUND"}, "slack_unavailable"),
+    ({"status": "404"}, "unexpected"),
+    ({}, "unexpected"),
+])
+def test_result_turns_each_kind_of_failed_answer_into_a_failure_kind(run, answer, kind):
+    action_answer(run, "false", **answer)
+    assert run("result", "--method", "apps.manifest.update").code == 1
+    assert run.kind == kind
+    assert run.outputs["failure_help"] == FAILURE_HELP[kind]
+
+
+def test_result_fails_when_the_action_did_not_run(run):
+    assert run("result", "--method", "apps.manifest.update").code == 1
+    assert run.kind == "unexpected"
+
+
+def test_result_does_not_trust_ok_when_slack_also_named_an_error(run):
+    action_answer(run, "true", "invalid_auth")
+    assert run("result", "--method", "apps.manifest.update").code == 1
+    assert run.kind == "credential_rejected"
+
+
+def test_verify_passes_when_the_installed_app_holds_every_permission(run):
+    assert run("verify").code == 0
+    assert run.log == ["auth_test"]
+
+
+def test_verify_fails_when_the_installed_app_lacks_a_permission(run):
+    run.slack.scopes = DEFINED_SCOPES - {"im:history"}
+    assert run("verify").code == 1
+    assert run.kind == "reinstall_needed"
+    assert "lacks the permission im:history" in run.summary
+
+
+def test_verify_passes_with_a_note_when_the_app_is_not_installed(run):
+    run.env.pop("SLACK_BOT_TOKEN")
+    assert run("verify").code == 0
+    assert run.log == []
+    assert "has not been installed" in run.summary
+
+
+def test_verify_reports_a_refused_bot_token_as_itself(run):
+    run.slack.fail["auth_test"] = SlackAppError("bot_token_rejected", ["auth.test: invalid_auth"])
+    assert run("verify").code == 1
+    assert run.kind == "bot_token_rejected"
 
 
 # create
@@ -419,6 +555,8 @@ def test_create_says_which_app_was_made_when_a_value_cannot_be_stored(run, name)
 
 @pytest.mark.parametrize("command, change", [
     ("validate", lambda run: None),
+    ("prepare", lambda run: None),
+    ("verify", lambda run: setattr(run.slack, "scopes", set())),
     ("apply", lambda run: None),
     ("apply", lambda run: setattr(run.slack, "scopes", set())),
     ("create", lambda run: run.env.pop("SLACK_APP_ID")),
@@ -428,7 +566,8 @@ def test_create_says_which_app_was_made_when_a_value_cannot_be_stored(run, name)
 ])
 def test_no_secret_is_published(run, command, change):
     change(run)
-    run(command)
+    run(*([command, "--payload", str(run.root / "payload.json")] if command == "prepare"
+          else [command]))
     for value in SECRETS:
         assert value not in run.published
 

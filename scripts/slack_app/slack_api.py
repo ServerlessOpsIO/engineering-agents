@@ -42,6 +42,41 @@ def _http(url, headers, body):
         raise SlackAppError("slack_unavailable", ["Slack could not be reached"]) from None
 
 
+def failure(method, answer, refused_kind="credential_rejected"):
+    """Return the SlackAppError for an answer from Slack that is not ok.
+
+    `answer` is Slack's JSON answer. It may also be what Slack's GitHub Action
+    reports when no answer came back: an HTTP status, a rate limit, or a
+    network error.
+    """
+    if not isinstance(answer, dict) or not answer:
+        return SlackAppError("unexpected", [f"{method}: no answer from Slack"])
+
+    code = answer.get("error")
+    if not isinstance(code, str):
+        status = answer.get("statusCode")
+        if "retryAfter" in answer or status == 429 or (isinstance(status, int) and status >= 500):
+            return SlackAppError("slack_unavailable", [f"{method}: Slack is not answering"])
+        if "errno" in answer or "syscall" in answer or isinstance(answer.get("code"), str):
+            return SlackAppError("slack_unavailable", [f"{method}: Slack could not be reached"])
+        return SlackAppError("unexpected", [f"{method}: an answer that is not understood"])
+
+    if code == "invalid_manifest":
+        details = [
+            f"Slack: {problem.get('pointer', '/')}: {problem.get('message', '')}"
+            for problem in answer.get("errors", [])
+            if isinstance(problem, dict)
+        ]
+        return SlackAppError("invalid_definition", details or ["Slack: invalid_manifest"])
+    if code in UNAVAILABLE:
+        return SlackAppError("slack_unavailable", [f"{method}: {code}"])
+    if code in REFUSED:
+        return SlackAppError(refused_kind, [f"{method}: {code}"])
+    if code == "app_not_found":
+        return SlackAppError("app_gone", [f"{method}: {code}"])
+    return SlackAppError("unexpected", [f"{method}: Slack answered {code}"])
+
+
 class SlackApi:
     """`transport` takes (url, headers, body) and returns (status, headers, body)."""
 
@@ -65,22 +100,7 @@ class SlackApi:
             raise SlackAppError("unexpected", [f"{method}: HTTP {status}, not a JSON object"])
         if answer.get("ok"):
             return answer, response_headers
-
-        code = str(answer.get("error", "unknown"))
-        if code == "invalid_manifest":
-            details = [
-                f"Slack: {problem.get('pointer', '/')}: {problem.get('message', '')}"
-                for problem in answer.get("errors", [])
-                if isinstance(problem, dict)
-            ]
-            raise SlackAppError("invalid_definition", details or ["Slack: invalid_manifest"])
-        if code in UNAVAILABLE:
-            raise SlackAppError("slack_unavailable", [f"{method}: {code}"])
-        if code in REFUSED:
-            raise SlackAppError(refused_kind, [f"{method}: {code}"])
-        if code == "app_not_found":
-            raise SlackAppError("app_gone", [f"{method}: {code}"])
-        raise SlackAppError("unexpected", [f"{method}: Slack answered {code}"])
+        raise failure(method, answer, refused_kind)
 
     def validate(self, token, manifest_json, app_id=None):
         params = {"manifest": manifest_json}

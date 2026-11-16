@@ -158,3 +158,8 @@ contacted Slack or GitHub.**
 only `check` runs on a branch. The owner then ran `pipenv run slack-app validate` locally
 with a Slack CLI service token and it passed: Slack's validation accepts a service token
 and accepts the built manifest. `apply`, `create` and `report` have still never run.
+
+**2026-11-16, later still.** The validate and update calls were moved to Slack's GitHub
+Action. 176 unit tests pass. The workflow file parses as YAML; it has not been linted, and
+the action has not run in it. Scenario E (a bad definition stopped on the branch) and
+scenario D (a change reaching Slack) are now also the tests of the action steps.

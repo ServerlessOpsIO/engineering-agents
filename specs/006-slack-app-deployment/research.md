@@ -66,10 +66,43 @@ and store a new one.
 token and it passed, so `apps.manifest.validate` accepts one. `export`, `update`, `create`
 and `auth.test` have not been tried with it.
 
-**Not done here**: using Slack's official GitHub Action
-(`slackapi/slack-github-action`) to run CLI commands in place of this program. Slack
-documents `manifest validate` and `deploy` examples for it. What `deploy` does to an app
-that is not hosted by Slack has not been established.
+## Decision 13: Slack's GitHub Action makes the validate and update calls (2026-11-16)
+
+**Decision**: `slackapi/slack-github-action` v4.0.0, pinned to its commit, calls
+`apps.manifest.validate` and `apps.manifest.update` with its `method` input and the service
+token. The program keeps everything else and can still do the whole job by hand.
+
+**Why this route and not the action's Slack CLI commands**: Slack documents
+`manifest validate` and `deploy` through the CLI for this action, but what `deploy` does to
+an app that is not hosted by Slack was not established, and the CLI expects a project
+layout this repository does not have. Calling the API methods through the action avoids
+both questions.
+
+**Read from the action's source on 2026-11-16** (`src/client.js`, `src/send.js`): the
+`ok` and `response` outputs are set whether the call succeeds or fails; with `errors` left
+off, a failed call is a warning and the step passes; the token is registered as a secret;
+the request content is only printed in debug logging.
+
+**What stays in the program, and why**:
+
+- The offline check and build: the action knows nothing of this project's rules.
+- Confirming the app exists before an update (`apps.manifest.export`): keeps "deleted"
+  apart from "unreachable" (FR-024).
+- Reading the answer: gives a failure kind and the text for the failure issue (FR-011,
+  FR-026).
+- The installed-permissions check: needs a response header the action does not return.
+- Creating the app: Slack's answer holds the signing secret and client secret, and the
+  action exposes the whole answer as a step output that cannot be masked first.
+
+**Secrets**: the Slack CLI's source suggests an update's answer may also hold credentials
+(`UpdateAppResult` has a `Credentials` field, marked for removal). A step's `env` is shown
+in its log, and this repository's logs are public, so the workflow passes on only the error
+fields of the answer, selected with expressions, and never the whole answer. Debug logging
+would still print the output, so the handbook says not to enable it for this workflow.
+
+**Not tried**: the action has not run in this workflow. The expressions that pick fields
+out of its output have not been linted or run. The first branch push tests `validate`; the
+first run on `main` tests `update`.
 
 ## Decision 1: Call Slack's Manifest API directly; do not use Terraform (FR-022)
 

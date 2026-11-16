@@ -26,8 +26,8 @@ Slack (FR-009). A run started by hand from any branch other than `main` runs `ch
 
 | Job | Contacts Slack | Changes Slack | Permissions on the built-in token |
 |---|---|---|---|
-| `check` | Yes, when the credential is available (validate only) | Never | `contents: read` |
-| `apply` | Yes | Updates the recorded app | `contents: read` |
+| `check` | Yes, when the credential is available (validate only, through Slack's action) | Never | `contents: read` |
+| `apply` | Yes (update through Slack's action) | Updates the recorded app | `contents: read` |
 | `create` | Yes | Creates an app | `contents: read` |
 | `report` | No | Never | `issues: write` |
 
@@ -55,13 +55,32 @@ needs `check`, `apply` and `create`, runs with `if: always()`, and only on `main
 - No step prints a secret. Every secret obtained during a job is masked before the next
   step (FR-018).
 
+### Slack's GitHub Action
+
+`apps.manifest.validate` (in `check`) and `apps.manifest.update` (in `apply`) are called by
+`slackapi/slack-github-action`, pinned to the commit of v4.0.0, with `method`, `token`
+(`SLACK_SERVICE_TOKEN`) and `payload-file-path` (the request file the program wrote). Its
+`errors` input is left off, so its step passes whatever Slack answers. The next step runs
+`slack-app result`, which is given only these fields of the action's `response` output:
+`error`, `errors`, `statusCode`, `code` and `retryAfter`, plus the `ok` output. The whole
+response is never passed to a step.
+
+Steps in `check`: `check --payload`, the action, `result`. The last two are skipped when
+`SLACK_SERVICE_TOKEN` is not available.
+
+Steps in `apply`: `prepare --payload`, the action, `result`, `verify`.
+
 ## 2. Command `pipenv run slack-app <command>`
 
 | Command | Reads | Does | Writes |
 |---|---|---|---|
 | `check` | The two files in `slack/` | Offline check; builds the manifest | Nothing. `--output FILE` writes the built manifest. |
-| `validate` | Files; `SLACK_SERVICE_TOKEN`; `SLACK_APP_ID` if set | Asks Slack to validate the built manifest | Nothing |
-| `apply` | Files; `SLACK_SERVICE_TOKEN`; `SLACK_APP_ID`; `SLACK_BOT_TOKEN` if set | Confirms the app exists; updates it; checks installed scopes | Nothing |
+| `check --payload FILE` | Files; `SLACK_APP_ID` if set | Offline check; writes the request for the action: `{"manifest": "<the built manifest as text>", "app_id": "<if set>"}` | The request file |
+| `prepare --payload FILE` | Files; `SLACK_SERVICE_TOKEN`; `SLACK_APP_ID` | Offline check; confirms the recorded app exists; writes the request | The request file |
+| `result --method METHOD` | `SLACK_ACTION_OK`, `SLACK_ACTION_ERROR`, `SLACK_ACTION_ERRORS`, `SLACK_ACTION_STATUS`, `SLACK_ACTION_CODE`, `SLACK_ACTION_RETRY_AFTER` | Passes when Slack accepted the call; otherwise fails with one failure kind | Nothing |
+| `verify` | Files; `SLACK_BOT_TOKEN` if set | Checks the installed app's scopes | Nothing |
+| `validate` (by hand) | Files; `SLACK_SERVICE_TOKEN`; `SLACK_APP_ID` if set | Asks Slack to validate the built manifest | Nothing |
+| `apply` (by hand) | Files; `SLACK_SERVICE_TOKEN`; `SLACK_APP_ID`; `SLACK_BOT_TOKEN` if set | Confirms the app exists; updates it; checks installed scopes | Nothing |
 | `create` | Files; `SLACK_SERVICE_TOKEN`; `SLACK_STORE_TOKEN`; `SLACK_APP_ID` if set | Refuses if the recorded app exists; creates the app | `SLACK_APP_ID`, `SLACK_SIGNING_SECRET`, `SLACK_CLIENT_ID`, `SLACK_CLIENT_SECRET` |
 
 Inputs come from environment variables with the names above, plus `GITHUB_REPOSITORY` for
