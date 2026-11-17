@@ -56,13 +56,25 @@ def test_the_committed_definition_asks_for_the_planned_scopes_and_events():
     manifest = yaml.safe_load((REPO_ROOT / "slack" / "manifest.yaml").read_text())
     assert manifest["oauth_config"]["scopes"]["bot"] == [
         "app_mentions:read", "chat:write", "im:history", "channels:history", "groups:history",
+        "reactions:write", "users:read",
     ]
     assert manifest["settings"]["event_subscriptions"]["bot_events"] == [
         "app_mention", "message.im", "message.channels", "message.groups",
     ]
 
 
+def test_the_committed_definition_sends_the_events_to_the_committed_address():
+    subscriptions = definition.check(REPO_ROOT)["settings"]["event_subscriptions"]
+    assert subscriptions["request_url"] == (
+        "https://engineering-agents.sandbox.serverlessops.io/slack/events"
+    )
+    assert subscriptions["bot_events"] == [
+        "app_mention", "message.im", "message.channels", "message.groups",
+    ]
+
+
 def test_events_are_left_out_while_there_is_no_address(root):
+    set_address(root, "")
     built = definition.check(root)
     assert "event_subscriptions" not in built["settings"]
     assert built["oauth_config"]["scopes"]["bot"]

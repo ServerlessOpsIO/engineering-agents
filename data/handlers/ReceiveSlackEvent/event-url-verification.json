@@ -1,0 +1,31 @@
+{
+  "resource": "/slack/events",
+  "path": "/slack/events",
+  "httpMethod": "POST",
+  "headers": {
+    "Content-Type": "application/json",
+    "Host": "engineering-agents.sandbox.serverlessops.io",
+    "User-Agent": "Slackbot 1.0 (+https://api.slack.com/robots)",
+    "X-Slack-Request-Timestamp": "1731790000",
+    "X-Slack-Signature": "v0=0000000000000000000000000000000000000000000000000000000000000000"
+  },
+  "multiValueHeaders": {},
+  "queryStringParameters": null,
+  "multiValueQueryStringParameters": null,
+  "pathParameters": null,
+  "stageVariables": null,
+  "requestContext": {
+    "resourcePath": "/slack/events",
+    "httpMethod": "POST",
+    "path": "/slack/events",
+    "stage": "main",
+    "requestId": "c6af9ac6-7b61-11e6-9a41-93e8deadbeef",
+    "identity": {
+      "sourceIp": "203.0.113.10",
+      "userAgent": "Slackbot 1.0 (+https://api.slack.com/robots)"
+    },
+    "apiId": "abcdefghij"
+  },
+  "body": "{\"token\":\"not-used\",\"challenge\":\"3eZbrw1aBm2rZgRNFdxV2595E9CY3gmdALWMmHkvFXO7tYXAYM8P\",\"type\":\"url_verification\"}",
+  "isBase64Encoded": false
+}

@@ -1,0 +1,14 @@
+{
+  "teamId": "T0123ABCD",
+  "channel": "C0123ABCDEF",
+  "channelType": "unknown",
+  "ts": "1731790000.111111",
+  "threadTs": "1731790000.111111",
+  "isReply": false,
+  "user": "U0123ABCD",
+  "text": "<@U0STRIDER> what is a trust boundary in the heron project?",
+  "eventType": "app_mention",
+  "eventId": "Ev0123ABCD",
+  "correlationId": "c6af9ac6-7b61-11e6-9a41-93e8deadbeef",
+  "receivedAt": "2026-11-16T12:00:00+00:00"
+}

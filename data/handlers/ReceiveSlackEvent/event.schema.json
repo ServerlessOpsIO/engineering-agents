@@ -1,0 +1,44 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "API Gateway proxy event carrying a Slack request",
+  "type": "object",
+  "required": [
+    "httpMethod",
+    "path",
+    "headers",
+    "requestContext",
+    "body",
+    "isBase64Encoded"
+  ],
+  "properties": {
+    "httpMethod": {
+      "const": "POST"
+    },
+    "path": {
+      "const": "/slack/events"
+    },
+    "headers": {
+      "type": "object"
+    },
+    "requestContext": {
+      "type": "object",
+      "required": [
+        "requestId"
+      ],
+      "properties": {
+        "requestId": {
+          "type": "string"
+        }
+      }
+    },
+    "body": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "isBase64Encoded": {
+      "type": "boolean"
+    }
+  }
+}

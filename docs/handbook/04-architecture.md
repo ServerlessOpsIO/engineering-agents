@@ -8,6 +8,22 @@
 | `AgentExecutionRole` | `AWS::IAM::Role` | What the agent may do: write its logs, traces and metrics, pull its image and invoke its model. |
 | `AgentMemory` | `AWS::BedrockAgentCore::Memory` | Keeps each session's messages so the agent can continue a conversation. |
 
+The stack deployed from `main` also has the Slack receiving service. A branch stack does not.
+
+| Resource | Type | Purpose |
+| --- | --- | --- |
+| `RestApi` | `AWS::Serverless::Api` | The public address Slack sends events to, defined in `openapi.yaml`. Throttled; access log only. |
+| `SiteCertificate` | `AWS::CertificateManager::Certificate` | Certificate for the hostname, validated through the hosted zone. |
+| `SlackSigningSecretStore`, `SlackBotTokenStore` | `AWS::SecretsManager::Secret` | The two Slack secrets, filled at deployment from GitHub secrets. Each is readable only by the functions that use it. |
+| `ReceiveSlackEventFunction` | `AWS::Serverless::Function` | Checks Slack's signature, answers Slack, queues the message. |
+| `SlackMessageQueue` | `AWS::SQS::Queue` (FIFO) | Messages waiting to be answered, one group per Slack thread. |
+| `AnswerSlackMessageFunction` | `AWS::Serverless::Function` | Asks the agent and posts the reply in the thread. |
+| `SlackHeldBackQueue` | `AWS::SQS::Queue` (FIFO) | Messages the worker did not finish. |
+| `CleanUpSlackMessageFunction` | `AWS::Serverless::Function` | Posts the apology if one is owed and removes the eyes reaction. |
+| Three log groups | `AWS::Logs::LogGroup` | One per function, kept 30 days. The API's access log is kept 7. |
+
+How a message travels through these is in [STRIDEr Slack messaging](09-slack-messaging.md).
+
 The image repository is not in the template. The workflows create it in the CI/CD account as
 `<owner>/<repository>` and apply `.github/workflows/ecr-policy.json`, which lets principals in
 the AWS organization pull from it.
@@ -23,12 +39,20 @@ src/agent/            # The code that ships in the image
 ├── prompt.py         # Loads the system prompt
 ├── system_prompt.md  # The agent's instructions
 └── Dockerfile        # arm64 image, non-root user, port 8080
-Pipfile               # Dependencies: runtime in [packages], test tools in [dev-packages]
+src/handlers/         # The Lambda functions of the Slack receiving service
+├── ReceiveSlackEvent/    # function.py and the requirements.txt packaged with it
+├── AnswerSlackMessage/
+└── CleanUpSlackMessage/
+src/common/           # Code the three functions share, packaged with each
+data/handlers/        # Sample events and schemas for the functions' tests
+openapi.yaml          # The one route of the public address
+Pipfile               # Dependencies: the agent's in [packages]; test tools and what the
+                      # functions import in [dev-packages]
 Pipfile.lock          # Exact versions that CI and the image install
 .dockerignore         # Limits the Docker build context to the Pipfile and src/agent/
 tests/unit/           # Unit tests; never packaged
 scripts/invoke.py     # Ask a deployed agent one question
-template.yaml         # Runtime, execution role, memory
+template.yaml         # Runtime, execution role, memory; the Slack receiving service
 cfn-parameters.json   # Deployment parameters
 cfn-tags.json         # Resource tags
 .github/workflows/    # Branch and main workflows, image repository policy

@@ -36,9 +36,22 @@
   `main`, reapplies it once a day, and creates the app only when started by hand.
 - The app's ID, signing secret, client ID, client secret and bot token stored as GitHub
   values for a later feature to read.
-- **Not yet:** STRIDEr does not answer. The service that receives messages from Slack is a
-  later feature, and until it exists the app subscribes to no events. See
-  [The STRIDEr Slack app](08-slack-app.md).
+- **STRIDEr answers.** A mention in a channel, or a direct message, gets the agent's reply in
+  a thread. See [STRIDEr Slack messaging](09-slack-messaging.md). It answers as the agent
+  does today; leading a STRIDE exercise is a later feature.
+
+## The Slack receiving service
+
+- A public address on API Gateway that accepts a request only when Slack's signature proves
+  Slack sent it.
+- Three Lambda functions in `src/handlers/`: one receives and queues, one asks the agent and
+  posts the reply, one cleans up after a message that was not finished.
+- Two SQS queues. No database: which threads STRIDEr takes part in is read from Slack.
+- One Slack thread is one agent session, shared by everyone in the thread. A thread's
+  earlier messages are given to the agent the first time STRIDEr answers in it.
+- Only full members of the workspace are answered.
+- What people write is never logged, and waits in a queue for at most an hour.
+- Present only in the stack deployed from `main`.
 
 ## Observability
 
@@ -48,5 +61,5 @@
 
 ## Not included
 
-These are left for the project to add when it needs them: a chat or API front end, reference
+These are left for the project to add when it needs them: a chat front end other than Slack, reference
 knowledge, tools and gateways, multi-agent orchestration, and dashboards or alerts.

@@ -1,0 +1,31 @@
+{
+  "resource": "/slack/events",
+  "path": "/slack/events",
+  "httpMethod": "POST",
+  "headers": {
+    "Content-Type": "application/json",
+    "Host": "engineering-agents.sandbox.serverlessops.io",
+    "User-Agent": "Slackbot 1.0 (+https://api.slack.com/robots)",
+    "X-Slack-Request-Timestamp": "1731790000",
+    "X-Slack-Signature": "v0=0000000000000000000000000000000000000000000000000000000000000000"
+  },
+  "multiValueHeaders": {},
+  "queryStringParameters": null,
+  "multiValueQueryStringParameters": null,
+  "pathParameters": null,
+  "stageVariables": null,
+  "requestContext": {
+    "resourcePath": "/slack/events",
+    "httpMethod": "POST",
+    "path": "/slack/events",
+    "stage": "main",
+    "requestId": "c6af9ac6-7b61-11e6-9a41-93e8deadbeef",
+    "identity": {
+      "sourceIp": "203.0.113.10",
+      "userAgent": "Slackbot 1.0 (+https://api.slack.com/robots)"
+    },
+    "apiId": "abcdefghij"
+  },
+  "body": "{\"token\":\"not-used\",\"team_id\":\"T0123ABCD\",\"api_app_id\":\"A0123ABCD\",\"event\":{\"type\":\"app_mention\",\"user\":\"U0123ABCD\",\"text\":\"<@U0STRIDER> what is a trust boundary in the heron project?\",\"ts\":\"1731790000.111111\",\"channel\":\"C0123ABCDEF\",\"event_ts\":\"1731790000.111111\"},\"type\":\"event_callback\",\"event_id\":\"Ev0123ABCD\",\"event_time\":1731790000,\"authorizations\":[{\"team_id\":\"T0123ABCD\",\"user_id\":\"U0STRIDER\",\"is_bot\":true}],\"is_ext_shared_channel\":false}",
+  "isBase64Encoded": false
+}

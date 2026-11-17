@@ -1,0 +1,26 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "What the function returns to API Gateway",
+  "type": "object",
+  "required": [
+    "statusCode",
+    "body"
+  ],
+  "properties": {
+    "statusCode": {
+      "enum": [
+        200,
+        400,
+        401,
+        500
+      ]
+    },
+    "body": {
+      "type": "string"
+    },
+    "headers": {
+      "type": "object"
+    }
+  },
+  "additionalProperties": false
+}

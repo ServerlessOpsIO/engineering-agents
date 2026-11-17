@@ -7,8 +7,9 @@
 # docs/handbook/08-slack-app.md.
 #
 # The event delivery address is not set here. It is `event_request_url` in
-# slack/settings.json. While that is empty, the events below are not sent to
-# Slack, because Slack does not accept events without an address.
+# slack/settings.json. If that is emptied, the events below are not sent to
+# Slack, because Slack does not accept events without an address, and STRIDEr
+# stops answering. See docs/handbook/09-slack-messaging.md.
 
 display_information:
   name: STRIDEr
@@ -32,6 +33,8 @@ oauth_config:
       - im:history  # Read direct messages sent to STRIDEr.
       - channels:history  # Read thread replies in public channels that do not mention STRIDEr.
       - groups:history  # Read thread replies in private channels that do not mention STRIDEr.
+      - reactions:write  # Show that STRIDEr is working on a message, and clear it when done.
+      - users:read  # Check that a person is a full member of the workspace before answering them.
 
 settings:
   event_subscriptions:

@@ -25,6 +25,13 @@ jobs:
         with:
           build_aws_account_id: ${{ secrets.AWS_CICD_ACCOUNT_ID }}
 
+      # sam build packages the Lambda functions in src/handlers, and needs the
+      # Python version they run on to do it.
+      - name: Setup Python environment
+        uses: ServerlessOpsIO/gha-setup-python@v1
+        with:
+          python_version: '3.14'
+
       - name: Install AWS SAM
         uses: aws-actions/setup-sam@v3
 

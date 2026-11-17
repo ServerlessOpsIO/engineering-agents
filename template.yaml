@@ -86,6 +86,47 @@ Parameters:
     MaxValue: 365
     Default: 7
 
+  Hostname:
+    Type: String
+    Description: "Hostname Slack sends events to"
+
+  DnsZoneId:
+    Type: AWS::SSM::Parameter::Value<String>
+    Description: "Route 53 hosted zone ID for the hostname"
+
+  # The two Slack secrets come from GitHub secrets at deployment. NoEcho keeps
+  # them out of CloudFormation's console and API output. They are used once,
+  # to fill the two Secrets Manager secrets below; no function is given them.
+  SlackSigningSecret:
+    Type: String
+    NoEcho: true
+    Description: "The Slack app's signing secret. Only used by the stack deployed from main."
+
+  SlackBotToken:
+    Type: String
+    NoEcho: true
+    Description: "The Slack app's bot token. Only used by the stack deployed from main."
+
+
+Conditions:
+  # Only the stack deployed from main receives Slack's events. A branch stack
+  # has the agent and none of the Slack receiving service.
+  ConnectSlack: !Equals [!Ref CodeBranch, main]
+
+
+Globals:
+  Function:
+    Runtime: python3.14
+    Architectures:
+      - arm64
+    # Slack waits three seconds for an answer, so the front door gives up then
+    # too. The worker and the cleanup function set their own timeouts.
+    Timeout: 3
+    MemorySize: 512
+    Environment:
+      Variables:
+        POWERTOOLS_SERVICE_NAME: !Ref AWS::StackName
+
 
 Resources:
   # Role the runtime assumes to run the agent. It follows the AWS-documented
@@ -233,6 +274,243 @@ Resources:
       EventExpiryDuration: !Ref MemoryEventExpiryDays
 
 
+  # --- The Slack receiving service -------------------------------------------
+  # See docs/handbook/09-slack-messaging.md. Message text waits in these queues,
+  # so both are encrypted and neither keeps a message for more than an hour.
+
+  # The Slack secrets, each readable only by the functions that need it. Their
+  # values are whatever the last deployment was given: to replace one, change
+  # the GitHub secret and deploy again.
+  SlackSigningSecretStore:
+    Type: AWS::SecretsManager::Secret
+    Condition: ConnectSlack
+    Properties:
+      Description: "Slack signing secret for STRIDEr. Set by deployment from the GitHub secret SLACK_SIGNING_SECRET."
+      SecretString: !Ref SlackSigningSecret
+
+  SlackBotTokenStore:
+    Type: AWS::SecretsManager::Secret
+    Condition: ConnectSlack
+    Properties:
+      Description: "Slack bot token for STRIDEr. Set by deployment from the GitHub secret SLACK_BOT_TOKEN."
+      SecretString: !Ref SlackBotToken
+
+  # Messages the worker did not finish. The cleanup function is triggered by it.
+  SlackHeldBackQueue:
+    Type: AWS::SQS::Queue
+    Condition: ConnectSlack
+    Properties:
+      FifoQueue: true
+      MessageRetentionPeriod: 3600
+      VisibilityTimeout: 60
+      SqsManagedSseEnabled: true
+
+  # Messages waiting to be answered. One group per Slack thread keeps a thread
+  # in order. The worker is given a message once: with nowhere to record that a
+  # message was answered, running twice could post twice, so an unfinished
+  # message goes to the held-back queue instead.
+  SlackMessageQueue:
+    Type: AWS::SQS::Queue
+    Condition: ConnectSlack
+    Properties:
+      FifoQueue: true
+      ContentBasedDeduplication: false
+      MessageRetentionPeriod: 3600
+      VisibilityTimeout: 300
+      SqsManagedSseEnabled: true
+      RedrivePolicy:
+        deadLetterTargetArn: !GetAtt SlackHeldBackQueue.Arn
+        maxReceiveCount: 1
+
+
+  # The front door. It checks Slack's signature, answers Slack, and queues the
+  # message. It can read the signing secret and send to the work queue, and
+  # nothing else.
+  ReceiveSlackEventFunction:
+    Type: AWS::Serverless::Function
+    Condition: ConnectSlack
+    Properties:
+      CodeUri: ./src/handlers/ReceiveSlackEvent
+      Handler: function.handler
+      LoggingConfig:
+        LogGroup: !Ref ReceiveSlackEventFunctionLogGroup
+      Environment:
+        Variables:
+          SLACK_SIGNING_SECRET_ARN: !Ref SlackSigningSecretStore
+          SLACK_MESSAGE_QUEUE_URL: !Ref SlackMessageQueue
+          MEMORY_EXPIRY_DAYS: !Ref MemoryEventExpiryDays
+      Policies:
+        - Version: '2012-10-17'
+          Statement:
+            - Sid: SigningSecret
+              Effect: Allow
+              Action: secretsmanager:GetSecretValue
+              Resource: !Ref SlackSigningSecretStore
+            - Sid: QueueMessages
+              Effect: Allow
+              Action: sqs:SendMessage
+              Resource: !GetAtt SlackMessageQueue.Arn
+
+  ReceiveSlackEventFunctionLogGroup:
+    Type: AWS::Logs::LogGroup
+    Condition: ConnectSlack
+    Properties:
+      LogGroupName: !Sub '/aws/lambda/${AWS::StackName}-ReceiveSlackEvent'
+      RetentionInDays: 30
+
+  ReceiveSlackEventFunctionInvokePermission:
+    Type: AWS::Lambda::Permission
+    Condition: ConnectSlack
+    Properties:
+      FunctionName: !GetAtt ReceiveSlackEventFunction.Arn
+      Action: lambda:InvokeFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub 'arn:${AWS::Partition}:execute-api:${AWS::Region}:${AWS::AccountId}:${RestApi}/*/POST/slack/events'
+
+  # The worker. It asks the agent and posts the reply. It can read the bot
+  # token, take messages from the work queue and call this stack's agent, and
+  # nothing else. It cannot read the signing secret or send to either queue.
+  AnswerSlackMessageFunction:
+    Type: AWS::Serverless::Function
+    Condition: ConnectSlack
+    Properties:
+      CodeUri: ./src/handlers/AnswerSlackMessage
+      Handler: function.handler
+      # Two tries at the agent of up to 100 seconds each, and the calls to
+      # Slack. It must stay under the work queue's visibility timeout.
+      Timeout: 240
+      LoggingConfig:
+        LogGroup: !Ref AnswerSlackMessageFunctionLogGroup
+      Environment:
+        Variables:
+          SLACK_BOT_TOKEN_SECRET_ARN: !Ref SlackBotTokenStore
+          AGENT_RUNTIME_ARN: !GetAtt AgentRuntime.AgentRuntimeArn
+          MAX_PROMPT_CHARS: !Ref MaxPromptChars
+          MEMORY_EXPIRY_DAYS: !Ref MemoryEventExpiryDays
+      Events:
+        SlackMessageQueue:
+          Type: SQS
+          Properties:
+            Queue: !GetAtt SlackMessageQueue.Arn
+            BatchSize: 1
+            FunctionResponseTypes:
+              - ReportBatchItemFailures
+            ScalingConfig:
+              MaximumConcurrency: 5
+      Policies:
+        - Version: '2012-10-17'
+          Statement:
+            - Sid: BotToken
+              Effect: Allow
+              Action: secretsmanager:GetSecretValue
+              Resource: !Ref SlackBotTokenStore
+            # The runtime and its endpoints: InvokeAgentRuntime is checked
+            # against both.
+            - Sid: AskTheAgent
+              Effect: Allow
+              Action: bedrock-agentcore:InvokeAgentRuntime
+              Resource:
+                - !GetAtt AgentRuntime.AgentRuntimeArn
+                - !Sub '${AgentRuntime.AgentRuntimeArn}/runtime-endpoint/*'
+
+  AnswerSlackMessageFunctionLogGroup:
+    Type: AWS::Logs::LogGroup
+    Condition: ConnectSlack
+    Properties:
+      LogGroupName: !Sub '/aws/lambda/${AWS::StackName}-AnswerSlackMessage'
+      RetentionInDays: 30
+
+  # The cleanup function. It deals with a message the worker did not finish:
+  # it posts the apology if one is owed and removes the eyes. It can read the
+  # bot token and take messages from the held-back queue. It cannot call the
+  # agent.
+  CleanUpSlackMessageFunction:
+    Type: AWS::Serverless::Function
+    Condition: ConnectSlack
+    Properties:
+      CodeUri: ./src/handlers/CleanUpSlackMessage
+      Handler: function.handler
+      # It must stay under the held-back queue's visibility timeout.
+      Timeout: 30
+      LoggingConfig:
+        LogGroup: !Ref CleanUpSlackMessageFunctionLogGroup
+      Environment:
+        Variables:
+          SLACK_BOT_TOKEN_SECRET_ARN: !Ref SlackBotTokenStore
+      Events:
+        SlackHeldBackQueue:
+          Type: SQS
+          Properties:
+            Queue: !GetAtt SlackHeldBackQueue.Arn
+            BatchSize: 1
+            FunctionResponseTypes:
+              - ReportBatchItemFailures
+      Policies:
+        - Version: '2012-10-17'
+          Statement:
+            - Sid: BotToken
+              Effect: Allow
+              Action: secretsmanager:GetSecretValue
+              Resource: !Ref SlackBotTokenStore
+
+  CleanUpSlackMessageFunctionLogGroup:
+    Type: AWS::Logs::LogGroup
+    Condition: ConnectSlack
+    Properties:
+      LogGroupName: !Sub '/aws/lambda/${AWS::StackName}-CleanUpSlackMessage'
+      RetentionInDays: 30
+
+  # The public address.
+  SiteCertificate:
+    Type: AWS::CertificateManager::Certificate
+    Condition: ConnectSlack
+    Properties:
+      DomainName: !Ref Hostname
+      ValidationMethod: DNS
+      DomainValidationOptions:
+        - DomainName: !Ref Hostname
+          HostedZoneId: !Ref DnsZoneId
+
+  RestApiLogGroup:
+    Type: AWS::Logs::LogGroup
+    Condition: ConnectSlack
+    Properties:
+      LogGroupName: !Sub "/aws/api-gateway/${AWS::StackName}"
+      RetentionInDays: 7
+
+  RestApi:
+    Type: AWS::Serverless::Api
+    Condition: ConnectSlack
+    Properties:
+      StageName: !Ref CodeBranch
+      Domain:
+        DomainName: !Ref Hostname
+        CertificateArn: !Ref SiteCertificate
+        Route53:
+          HostedZoneId: !Ref DnsZoneId
+        EndpointConfiguration: REGIONAL
+      # The access log has no request or response content in it.
+      AccessLogSetting:
+        DestinationArn: !GetAtt RestApiLogGroup.Arn
+        Format: '$context.extendedRequestId $context.identity.sourceIp $context.identity.caller $context.identity.user [$context.requestTime] "$context.httpMethod $context.resourcePath $context.protocol" $context.status $context.responseLength $context.requestId'
+      # Execution logging is off. It is not established that it keeps request
+      # bodies out of the log, and they hold what people wrote in Slack. The
+      # throttle caps what a flood of requests to this public address can cost.
+      MethodSettings:
+        - ResourcePath: "/*"
+          HttpMethod: "*"
+          LoggingLevel: "OFF"
+          MetricsEnabled: true
+          DataTraceEnabled: false
+          ThrottlingRateLimit: 5
+          ThrottlingBurstLimit: 10
+      DefinitionBody:
+        Fn::Transform:
+          Name: "AWS::Include"
+          Parameters:
+            Location: "openapi.yaml"
+
+
 Outputs:
   AgentRuntimeArn:
     Description: "ARN of the agent runtime. Callers need bedrock-agentcore:InvokeAgentRuntime on it."
@@ -245,3 +523,18 @@ Outputs:
   AgentMemoryId:
     Description: "ID of the agent's AgentCore Memory"
     Value: !GetAtt AgentMemory.MemoryId
+
+  SlackMessageQueueUrl:
+    Condition: ConnectSlack
+    Description: "URL of the queue of Slack messages waiting to be answered"
+    Value: !Ref SlackMessageQueue
+
+  SlackHeldBackQueueUrl:
+    Condition: ConnectSlack
+    Description: "URL of the queue of Slack messages the worker did not finish"
+    Value: !Ref SlackHeldBackQueue
+
+  SlackEventsUrl:
+    Condition: ConnectSlack
+    Description: "Address Slack sends events to. It is event_request_url in slack/settings.json."
+    Value: !Sub 'https://${Hostname}/slack/events'
