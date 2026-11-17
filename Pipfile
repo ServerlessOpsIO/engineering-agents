@@ -4,17 +4,26 @@ verify_ssl = true
 name = "pypi"
 
 # Runtime dependencies. These are installed in the image.
+
 [packages]
 strands-agents = "==1.65.0"
 bedrock-agentcore = "==1.26.0"
 aws-opentelemetry-distro = "==0.22.0"
 
-# Tools for tests and scripts. These are not installed in the image.
+# Tools for tests and scripts, and what the Lambda functions in src/handlers
+# import. These are not installed in the image. Each function's own
+# requirements.txt says what is packaged with it.
+
 [dev-packages]
 pytest = "==9.2.0"
 boto3 = "*"
 pyyaml = "==6.0.3"
 jsonschema = "==4.26.0"
+aws-lambda-powertools = "==3.40.0"
+slack-sdk = "==3.47.0"
+moto = {extras = ["sqs", "ssm"], version = "==5.2.5"}
+pytest-mock = "==3.17.0"
+common = {editable = true, path = "src/common"}
 
 [requires]
 python_version = "3.14"

@@ -7,6 +7,10 @@ An AI agent built with the [Strands Agents SDK](https://strandsagents.com/) and 
 Infrastructure is defined with [AWS SAM](https://aws.amazon.com/serverless/sam/) and deployed by
 GitHub Actions.
 
+The agent answers in Slack as **STRIDEr**: mention it in a channel, or send it a direct
+message, and the reply comes in a thread. See
+[STRIDEr Slack messaging](docs/handbook/09-slack-messaging.md).
+
 The [project handbook](docs/handbook/00-index.md) covers features, configuration, architecture,
 CI/CD, observability and common tasks. It is also in the component's **Docs** tab in Backstage.
 

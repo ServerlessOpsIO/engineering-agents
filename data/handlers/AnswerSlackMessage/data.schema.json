@@ -1,0 +1,66 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Queued Slack message",
+  "type": "object",
+  "required": [
+    "teamId",
+    "channel",
+    "channelType",
+    "ts",
+    "threadTs",
+    "isReply",
+    "user",
+    "text",
+    "eventType",
+    "eventId",
+    "correlationId",
+    "receivedAt"
+  ],
+  "properties": {
+    "teamId": {
+      "type": "string"
+    },
+    "channel": {
+      "type": "string"
+    },
+    "channelType": {
+      "enum": [
+        "channel",
+        "group",
+        "im",
+        "unknown"
+      ]
+    },
+    "ts": {
+      "type": "string"
+    },
+    "threadTs": {
+      "type": "string"
+    },
+    "isReply": {
+      "type": "boolean"
+    },
+    "user": {
+      "type": "string"
+    },
+    "text": {
+      "type": "string"
+    },
+    "eventType": {
+      "enum": [
+        "app_mention",
+        "message"
+      ]
+    },
+    "eventId": {
+      "type": "string"
+    },
+    "correlationId": {
+      "type": "string"
+    },
+    "receivedAt": {
+      "type": "string"
+    }
+  },
+  "additionalProperties": false
+}

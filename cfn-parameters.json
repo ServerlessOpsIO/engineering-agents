@@ -8,5 +8,8 @@
     "ContainerImage": $env.GITHUB_REPOSITORY_NAME_PART_SLUG,
     "ContainerTag": $env.GITHUB_SHA,
     "ModelId": "us.openai.gpt-6-luna",
-    "ReasoningEffort": "default"
+    "ReasoningEffort": "default",
+    "MaxPromptChars": 16000,
+    "Hostname": "engineering-agents.sandbox.serverlessops.io",
+    "DnsZoneId": "/org/dns/ZoneId"
 }

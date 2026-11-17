@@ -1,0 +1,78 @@
+---
+openapi: 3.0.3
+info:
+  title: engineering-agents
+  description: |
+    Receives events from Slack for the STRIDEr Slack app. Slack is the only
+    caller. See docs/handbook/09-slack-messaging.md.
+  version: 1.0.0
+servers:
+  - url:
+      Fn::Sub: "https://${Hostname}"
+    description: Production endpoint
+
+paths:
+  "/slack/events":
+    post:
+      summary: Receive a Slack event
+      description: |
+        Slack signs every request with the app's signing secret. There is no
+        authorizer and no request validator on this route, on purpose: an
+        authorizer is not given the request body, which the signature is
+        computed over, so the function makes the check; and a validator writes
+        what it finds to the log, where what people wrote in Slack must not go.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SlackRequest"
+      responses:
+        '200':
+          description: Accepted, or the answer to Slack's check of this address
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SlackResponse"
+        '400':
+          description: The body is not JSON
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        '401':
+          description: The signature is missing, wrong or more than five minutes old
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        '500':
+          description: The message could not be queued. Slack sends it again.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+      x-amazon-apigateway-integration:
+        type: AWS_PROXY
+        httpMethod: POST
+        uri:
+          Fn::Sub: "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${ReceiveSlackEventFunction.Arn}/invocations"
+
+components:
+  schemas:
+    SlackRequest:
+      description: Whatever Slack sends. Slack decides its shape.
+      type: object
+      additionalProperties: true
+    SlackResponse:
+      type: object
+      properties:
+        challenge:
+          type: string
+    ErrorResponse:
+      type: object
+      properties:
+        message:
+          type: string
+      required:
+        - message

@@ -19,8 +19,10 @@ with long names (issue #10). Branch pushes still run the tests and build the ima
 
 ### `build_infra`
 
-Runs `sam validate --lint` and `sam build`, then stores the template artifact for the deploy
-job.
+Installs Python 3.14, runs `sam validate --lint` and `sam build`, then stores the template
+artifact for the deploy job. `sam build` also packages the three Lambda functions in `src/handlers/`, each with what
+its own `requirements.txt` lists and the shared code in `src/common/`. The functions are
+deployed only by `Main`: they exist in the `main` stack and no other.
 
 ### `build_container`
 

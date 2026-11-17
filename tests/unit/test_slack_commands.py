@@ -25,6 +25,7 @@ SECRETS = [
 
 DEFINED_SCOPES = {
     "app_mentions:read", "chat:write", "im:history", "channels:history", "groups:history",
+    "reactions:write", "users:read",
 }
 
 
@@ -351,9 +352,26 @@ def test_apply_does_not_call_slacks_added_defaults_a_change(run):
     assert "outside the pipeline" not in run.summary
 
 
-def test_apply_holds_events_back_until_there_is_an_address(run):
+ADDRESS = "https://engineering-agents.sandbox.serverlessops.io/slack/events"
+EVENTS = ["app_mention", "message.im", "message.channels", "message.groups"]
+
+
+def without_an_address(run):
+    """Empty the event address in the run's copy of the definition."""
+    (run.root / "slack" / "settings.json").write_text('{"event_request_url": ""}')
+
+
+def test_apply_holds_events_back_while_there_is_no_address(run):
+    without_an_address(run)
     run("apply")
     assert "event_subscriptions" not in run.slack.sent["manifest"]["settings"]
+
+
+def test_apply_sends_the_events_and_the_committed_address(run):
+    run("apply")
+    assert run.slack.sent["manifest"]["settings"]["event_subscriptions"] == {
+        "request_url": ADDRESS, "bot_events": EVENTS,
+    }
 
 
 # the commands the workflow runs around Slack's GitHub Action
@@ -380,7 +398,16 @@ def test_prepare_writes_the_request_and_contacts_nothing(run, tmp_path):
     assert run.log == []
     payload = json.loads(target.read_text())
     assert payload["app_id"] == "A0OLD"
-    assert "event_subscriptions" not in json.loads(payload["manifest"])["settings"]
+    assert json.loads(payload["manifest"])["settings"]["event_subscriptions"] == {
+        "request_url": ADDRESS, "bot_events": EVENTS,
+    }
+
+
+def test_prepare_leaves_events_out_while_there_is_no_address(run, tmp_path):
+    without_an_address(run)
+    target = tmp_path / "payload.json"
+    assert run("prepare", "--payload", str(target)).code == 0
+    assert "event_subscriptions" not in json.loads(json.loads(target.read_text())["manifest"])["settings"]
 
 
 def test_prepare_with_no_app_recorded_fails_and_writes_no_request(run, tmp_path):

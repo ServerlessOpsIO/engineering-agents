@@ -1,0 +1,4 @@
+-e src/common/
+aws_lambda_powertools
+slack_sdk
+boto3

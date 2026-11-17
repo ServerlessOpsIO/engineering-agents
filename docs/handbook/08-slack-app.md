@@ -4,9 +4,9 @@ STRIDEr is a Slack agent that will lead threat modeling exercises using the STRI
 framework. This page covers the Slack app that represents STRIDEr in the `serverlessops`
 workspace: how it is created, changed and repaired.
 
-**STRIDEr does not answer yet.** The app gives STRIDEr a name, a bot user and permissions.
-The service that receives messages from Slack and replies is a later feature. Until then
-the app is present in the workspace and does nothing when spoken to.
+The app gives STRIDEr a name, a bot user and permissions. The service that receives
+messages from Slack and replies is described in
+[STRIDEr Slack messaging](09-slack-messaging.md).
 
 Nothing on this page has been run against Slack yet. The first-time setup below is also the
 first real test of the pipeline; record what happens in
@@ -17,7 +17,7 @@ first real test of the pipeline; record what happens in
 | File | Purpose |
 | --- | --- |
 | `slack/manifest.yaml` | The app definition: name, bot user, permissions and events. The single source of truth. |
-| `slack/settings.json` | The event delivery address, `event_request_url`. Empty for now. |
+| `slack/settings.json` | The event delivery address, `event_request_url`. |
 | `slack/icon.jpg` | The app's icon. Optional; `slack/icon.png` works too. |
 | `slack/manifest.schema.json` | A copy of Slack's published schema for app definitions, used by the check. |
 | `scripts/slack_app/` | The program the pipeline runs around Slack's GitHub Action: `pipenv run slack-app <command>`. |
@@ -26,8 +26,9 @@ first real test of the pipeline; record what happens in
 The pipeline makes the app in Slack match `slack/manifest.yaml`. **Do not change the app in
 the Slack console.** A change made there is undone by the next run, at most a day later.
 
-While `event_request_url` is empty, the events listed in `slack/manifest.yaml` are not sent
-to Slack, because Slack does not accept events without an address. The permissions are sent.
+If `event_request_url` is emptied, the events listed in `slack/manifest.yaml` are not sent
+to Slack, because Slack does not accept events without an address, and STRIDEr stops
+answering. The permissions are still sent.
 
 ## First-time setup
 
@@ -175,7 +176,9 @@ removed permission until it is next installed is not yet known; see issue #7.
 
 ## Supplying the event delivery address
 
-This belongs to the later feature, which provides the service Slack sends events to.
+The address is set: it is the receiving service's,
+`https://engineering-agents.sandbox.serverlessops.io/slack/events`. These steps apply if it
+is ever emptied and put back, or changed.
 
 1. Set `event_request_url` in `slack/settings.json` to the service's `https://` address.
 2. Merge to `main`. The run sends the address and the events in `slack/manifest.yaml`.

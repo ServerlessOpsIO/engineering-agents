@@ -114,7 +114,7 @@ top-level message asking about the first: it does not.
 
    ```bash
    aws sqs receive-message --visibility-timeout 0 --queue-url "$(aws cloudformation \
-     describe-stacks --stack-name engineering-agents --query \
+     describe-stacks --stack-name <the main stack's name> --query \
      "Stacks[0].Outputs[?OutputKey=='SlackHeldBackQueueUrl'].OutputValue" --output text)"
    ```
 
@@ -145,7 +145,7 @@ secret. Expected: no matches. Confirm both queues are empty.
 
 | Scenario | Date | Result | Notes |
 |----------|------|--------|-------|
-| A | | | |
+| A | 2026-11-16 | Pass | 427 tests pass with no AWS credentials: the 212 from before this feature and 215 new. Run by the author on a laptop, not yet in CI. |
 | B | | | |
 | C | | | |
 | D | | | |
