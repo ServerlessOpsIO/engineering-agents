@@ -55,6 +55,8 @@ lead a STRIDE exercise is a later feature.
 - Q: When a message can't be answered and is kept for the owner to look at, should the kept copy include the text of the message? → A: Yes, for a short time. The owner first chose identifiers only, and changed this after reading the plan: the text travels with the message so that Slack does not have to be asked for it, and a held-back message is deleted after 60 minutes. The lasting record of a failure is the log, which has no text.
 - Q: What should happen when the worker stops part-way through a message, so the person has the eyes reaction and nothing else? → A: A separate cleanup step, triggered by the held-back store, posts the apology and removes the reaction. The owner proposed this on 2026-11-16. Because the cleanup step empties the held-back store, the store is no longer somewhere to look at failed messages; the log is.
 - Q: What should happen in a thread that is older than the agent's memory? → A: Nothing STRIDEr does should last past the memory period (7 days by default). In an older thread, a person who addresses STRIDEr is told it no longer remembers the conversation and is asked to start a new one. From the owner's suggestion on 2026-11-16; the exact rule is the author's.
+- Q: The cross-check of the spec, plan and tasks found two gaps and ten smaller mismatches. How were they settled? → A: By the author's proposals, accepted by the owner on 2026-11-16: an empty reply with no mention gets nothing (FR-029); FR-042 lists all five departures from the template; SC-013 allows 60 minutes when the cleanup step is failing; the programs' logs are kept 30 days (FR-037); a fourth case in FR-053 for when STRIDEr's own identity cannot be found; SC-016 is accepted by design and not tested on the live stack; and the front door gives up after 3 seconds, as Slack does.
+- Q: The review of the requirements checklist left 31 items open. How were they settled? → A: On 2026-11-16 the owner accepted the author's proposals: 22 small additions to this specification, each stating something that was only in the plan or was missing; a success criterion for "never two replies" (SC-020); the wider reach of the permission to look people up; and raising the agent's prompt length from 4,000 to 16,000 characters. Six items were set aside as not worth changing: the wording of the fixed sentences stays in the plan, the try counts stay as chosen, and three rules are left to unit tests without a success criterion of their own.
 - Q: Is the eyes reaction used when STRIDEr replies with the start-again sentence in an old thread? → A: Yes. Added, then removed once the sentence is posted.
 - Q: Should the spec say that later messages in a thread wait while an unfinished message is moved to the held-back store? → A: Yes. Added to FR-022 and the edge cases.
 - Q: Should a message that is more than 4 minutes old when it arrives be ignored, to close the one way a message could be answered twice? → A: Yes. Proposed by the author; confirmed by the owner on 2026-11-16, together with the rule for old threads (FR-050, FR-051).
@@ -222,7 +224,9 @@ referring to the first message; the answer shows the agent remembers it.
 Sometimes the agent fails, or Slack sends the same event twice, or Slack cannot be reached
 when the reply is ready, or the worker itself stops part-way. The person is not left with
 an eyes reaction and nothing else: they get the reply or the apology, and the reaction is
-removed. They never get two replies to one message. A message
+removed. There are three exceptions, each in the edge cases: Slack is taking no posts at
+all; the cleanup step cannot run for an hour; and the eyes could not be added before the
+worker stopped. They never get two replies to one message. A message
 that could not be answered is kept where the owner can find it.
 
 **Why this priority**: The path has several steps and any of them can fail. Without this
@@ -283,8 +287,8 @@ reply appears.
   not known whether Slack delivers a mention of STRIDEr made in a group direct message. If
   it does, STRIDEr answers it as it would in a channel.
 - STRIDEr is mentioned part-way down a thread: the thread's earlier messages are given to
-  the agent with that message, once. After that the agent's memory of the session is used
-  and the thread is not read again.
+  the agent the first time STRIDEr answers there (FR-046). After that the agent's memory
+  of the session is used and the earlier messages are not given again.
 - The thread's earlier messages are more than the agent accepts: the oldest are left out
   until the rest fit, and the agent is told that some were left out.
 - A thread cannot be read from Slack, after several tries: if the message does not mention
@@ -299,6 +303,10 @@ reply appears.
 - A person writes again in a thread while the worker has stopped part-way through their
   previous message: the new message waits about five minutes, until the unfinished one has
   moved to the held-back store, and is then answered (FR-022).
+- A message waits more than 60 minutes without being answered, because the worker is not
+  running: it is dropped, not answered late, and the person is not told.
+- The person's message has been deleted by the time the cleanup step runs: nothing is
+  posted.
 - The cleanup step itself fails: it is tried again until the message is 60 minutes old.
   After that the message is deleted, the eyes may stay, and the log is the only trace.
 - The reaction cannot be added, for example because the app has not been installed again
@@ -338,8 +346,8 @@ reply appears.
 **Receiving events**
 
 - **FR-001**: The receiving service MUST offer one public address that Slack can send events
-  to. The address MUST be `https://engineering-agents.sandbox.serverlessops.io` followed by
-  a fixed path, and MUST stay the same when the receiving service is removed and deployed
+  to. The address MUST be
+  `https://engineering-agents.sandbox.serverlessops.io/slack/events`, and MUST stay the same when the receiving service is removed and deployed
   again.
 - **FR-002**: The front door MUST accept a request only when its signature matches its
   exact content and the signing secret, and its time of sending is no more than five
@@ -358,8 +366,8 @@ reply appears.
   worker, because they need Slack to be asked: whether the writer is a full member, and
   whether a thread is one STRIDEr has been mentioned in. FR-010 holds either way.
 - **FR-007**: The front door MUST limit the rate of requests it accepts, so that a flood of
-  requests cannot run up unbounded cost. The limit is set in planning and MUST be above
-  what the workspace produces in normal use.
+  requests cannot run up unbounded cost. The limit is 5 requests a second, with bursts of
+  10, which is far above what the workspace produces in normal use.
 
 **Deciding what to answer**
 
@@ -367,11 +375,14 @@ reply appears.
   of the `serverlessops` workspace and one of these is true:
   1. it is in a channel and mentions STRIDEr;
   2. it is a direct message to STRIDEr;
-  3. it is in a thread in which STRIDEr has already been mentioned.
+  3. it is in a thread in which STRIDEr has already been mentioned, by anyone, including
+     someone STRIDEr does not answer.
 - **FR-009**: The receiving service MUST NOT answer: a message from a bot or from STRIDEr
   itself; a message from a guest of the workspace or from a person in another organisation
-  who shares a channel with it; an edit or a deletion; a notice Slack generates itself; or any message that
-  FR-008 does not cover.
+  who shares a channel with it; an edit or a deletion; a notice Slack generates itself; or
+  any message that FR-008 does not cover. Of the kinds of message Slack distinguishes,
+  three are answered: an ordinary message, a message with a file, and a reply that is
+  also sent to the channel. Every other kind is ignored.
 - **FR-010**: A message that is not answerable MUST get no reaction and no reply, and MUST
   NOT be sent to the agent.
 - **FR-011**: When Slack delivers the same event more than once, the receiving service MUST
@@ -394,8 +405,10 @@ reply appears.
   outside the account, and how the agent checks its callers MUST NOT change.
 - **FR-016**: The worker MUST post the agent's reply in the thread under the person's
   message. A reply to a message that is already in a thread goes in that thread.
-- **FR-017**: A reply longer than Slack accepts in one message MUST be posted as several
-  messages in order, with no text lost. Each of them MUST end with a label saying which
+- **FR-017**: A reply longer than 11,000 characters, which is safely inside what Slack
+  accepts in one message, MUST be posted as several messages in order, with no text lost.
+  It is split at a paragraph break where there is one, otherwise at a line break,
+  otherwise anywhere. Each of them MUST end with a label saying which
   part it is and how many there are, such as "(part 1 of 3)". A reply that fits in one
   message has no label.
 - **FR-052**: When only some parts of a reply could be posted, the person MUST be told,
@@ -403,13 +416,16 @@ reply appears.
   ask again. The worker does this when a part cannot be posted. The cleanup step does it
   when it finds that the last thing STRIDEr posted is a part that is not the final one.
   When no part could be posted at all, the apology is used.
-- **FR-018**: The reply MUST read correctly in Slack. Where the agent's formatting differs
-  from Slack's, it MUST be converted or removed, not shown as stray symbols.
+- **FR-018**: The reply MUST read correctly in Slack: bold, italic, links, lists, headings,
+  quotes and code MUST show as intended. Where the agent's formatting differs from
+  Slack's, it MUST be converted or removed, not shown as stray symbols.
 - **FR-046**: The first time STRIDEr answers in a channel thread that already has messages,
   the worker MUST give the agent those earlier messages along with the message being
   answered: the text of each and who wrote it, in the order they were sent. Once STRIDEr
   has answered in a thread, later messages in it are sent on their own. The apology and
-  the other fixed sentences do not count as an answer.
+  the other fixed sentences do not count as an answer. The earlier messages are every
+  message in the thread that has text, whoever wrote it, including bots and STRIDEr
+  itself. A message with no text is left out.
 - **FR-047**: When the earlier messages and the message being answered are together more
   than the agent accepts, the worker MUST leave out the oldest earlier messages until the
   rest fit, and MUST tell the agent that some were left out. The message being answered is
@@ -423,7 +439,9 @@ reply appears.
 
 - **FR-020**: Every message in one Slack thread MUST use the same session, and messages in
   different threads MUST use different sessions. The session MUST be worked out from the
-  thread alone, so the same thread always gives the same session.
+  thread alone, so the same thread always gives the same session. Everyone who writes in a
+  thread takes part in the same conversation: what one person told STRIDEr there is
+  remembered when another person asks there.
 - **FR-021**: In a direct message, each top-level message MUST start a new thread and a new
   session, and replies in that thread MUST continue it.
 - **FR-022**: Messages in one thread MUST be answered in the order they were sent. Messages
@@ -437,7 +455,8 @@ reply appears.
 **Failures**
 
 - **FR-024**: When the agent cannot answer, or its answer cannot be obtained, the worker
-  MUST try again once. A message gets two attempts in total and no more.
+  MUST try again once. A message gets two attempts in total and no more. An attempt that
+  has produced no answer in 100 seconds has failed.
 - **FR-025**: When both attempts have failed, the worker MUST post the apology in the thread,
   once. The apology is one fixed sentence and MUST NOT include any detail of the failure.
 - **FR-026**: A message the worker stopped before finishing MUST go to the held-back store,
@@ -460,7 +479,9 @@ reply appears.
   1. a reply that does not mention STRIDEr, in a thread that cannot be read, gets nothing;
   2. a message whose writer cannot be looked up gets nothing, whatever it says;
   3. a message that mentions STRIDEr, from a full member, in a thread that cannot be read,
-     gets the apology, and the agent is not called.
+     gets the apology, and the agent is not called;
+  4. when the worker cannot find out STRIDEr's own identity, which it needs to recognise
+     a mention, the message gets nothing.
   Each is logged as a failure with its reason.
 - **FR-050**: A thread that began longer ago than the agent keeps memory MUST be treated
   as no longer STRIDEr's. A reply in it that does not mention STRIDEr gets nothing. A
@@ -468,7 +489,8 @@ reply appears.
   gets a fixed sentence saying STRIDEr no longer remembers the conversation and asking
   the person to start a new one; the agent is not called. The eyes reaction is added
   before the sentence is posted and removed after it, as for any reply. FR-008's
-  membership rule still applies first.
+  membership rule still applies first. The cut-off is the age of the thread, not the time
+  since its last message, and there is no warning before it is reached.
 - **FR-051**: The front door MUST ignore a message that is more than 4 minutes old when
   it arrives.
 - **FR-028**: When the agent rejects a message for being longer than it accepts, the worker
@@ -476,7 +498,9 @@ reply appears.
   This is not a failure: it is not retried and not held back.
 - **FR-029**: When an answerable message has no text once the mention is removed, the
   worker MUST post a fixed sentence asking what the person needs, and MUST NOT call the
-  agent.
+  agent. This applies only when the message mentions STRIDEr or is a direct message. A
+  reply with no text and no mention, such as a file on its own, in a thread STRIDEr is
+  part of gets nothing.
 
 **Secrets and privacy**
 
@@ -485,14 +509,16 @@ reply appears.
 - **FR-031**: No secret value may appear in the repository, in the deployment's description
   of itself, in a log, in pipeline output, in an issue or in a pull request.
 - **FR-032**: The owner MUST be able to replace either secret without changing the
-  repository.
-- **FR-033**: The text of a message and the text of a reply MUST NOT be written to any log,
-  including the logs of the public address. This matches the agent's existing rule.
+  repository or deploying. A replaced secret MUST be in use within 5 minutes.
+- **FR-033**: The text of a message, of a thread's earlier messages and of a reply MUST NOT
+  be written to any log, including the logs of the public address and anything logged
+  when an error is reported. This matches the agent's existing rule.
 - **FR-049**: The receiving service MUST NOT keep the text of a message for longer than 60
   minutes while it waits to be answered, or for longer than 60 minutes more in the
   held-back store. It MUST NOT keep the text of a thread's earlier messages or of a reply
   at all, beyond the moment of use. After that the text exists only in Slack and in the
-  agent's own memory. Text that is waiting MUST be encrypted.
+  agent's own memory. Text that is waiting MUST be encrypted. This covers every message
+  that waits, including a reply in a thread that STRIDEr turns out not to be part of.
 - **FR-034**: Each part of the receiving service MUST have only the access it needs: the
   front door to read the signing secret and pass messages on; the worker to read the bot
   token, take messages and call this one agent; the cleanup step to read the bot token
@@ -508,7 +534,8 @@ reply appears.
 - **FR-036**: The worker's record for a message MUST carry the identifier in the front
   door's record and the identifier in the agent's own record for the same message, so the
   three can be found together.
-- **FR-037**: The public address MUST keep an access log, kept for 7 days.
+- **FR-037**: The public address MUST keep an access log, kept for 7 days. The log of each
+  of the three programs MUST be kept for 30 days and then deleted.
 
 **The Slack app**
 
@@ -527,18 +554,24 @@ reply appears.
   deployment template and deployed by the existing pipeline, in the same run as the agent.
 - **FR-042**: The public address and the three programs MUST follow the conventions of the
   `backstage-aws-sam-python-template` repository (`skeleton/crud` and `functions/crud`) for
-  how an address and its programs are described, laid out, logged and tested. Two
+  how an address and its programs are described, laid out, logged and tested. Five
   exceptions: Slack's route does not use that template's sign-in check, because Slack
-  cannot sign in and FR-002 is the check; and the content of Slack's requests is not held
-  to a strict description, because Slack decides it.
+  cannot sign in and FR-002 is the check; the content of Slack's requests is not held
+  to a strict description, because Slack decides it; the gateway's own request logging
+  is switched off and only its access log is kept, because it is not established that
+  request content stays out of it; the programs do not log the events they receive, at
+  any level, for FR-033; and the programs are given more memory than the template's
+  default, so the front door starts quickly enough for FR-005.
 - **FR-043**: All three programs MUST have unit tests that run without contacting the cloud
   platform or Slack. They cover at least: FR-002 with a valid, missing, wrong and stale
   signature; FR-004; each rule in FR-008 and FR-009, including who wrote the message; FR-011; FR-020 and FR-021; FR-025,
-  FR-028 and FR-029; FR-046 and FR-047; the three cases of FR-026; FR-050 and FR-051; FR-017's labels with both halves of FR-052; and the three cases of FR-053.
+  FR-028 and FR-029; FR-046 and FR-047; the three cases of FR-026; FR-050 and FR-051; FR-017's labels with both halves of FR-052; and the four cases of FR-053.
 - **FR-044**: The existing agent's tests and the Slack app's tests MUST still pass.
 - **FR-045**: The handbook MUST describe: what the receiving service is; the first-time
   steps in order, saying which are done by hand; how to replace a secret; how to find a
-  failed message in the log; what to do when Slack has stopped sending events; and what people in
+  failed message in the log; what to do when Slack has stopped sending events; how to
+  disconnect STRIDEr from Slack, by emptying `event_request_url` and merging, and how to
+  connect it again; and what people in
   the workspace need to know, including that STRIDEr must be added to a channel before it
   can be mentioned there.
 
@@ -550,8 +583,8 @@ reply appears.
   the event identifier, the channel, the message's own time stamp, the thread it belongs
   to, the person's Slack ID and the text.
 - **Session**: the agent's memory of one conversation. There is one for each Slack thread.
-- **Thread context**: the messages already in a thread when STRIDEr is first mentioned in
-  it. Given to the agent once, at that first mention.
+- **Thread context**: the messages already in a thread when STRIDEr first answers in it.
+  Given to the agent once, with that first answer.
 - **Reply**: what the agent returned, posted in the thread as one or more messages.
 - **The apology** and the four other **fixed sentences** (message too long; nothing asked;
   start again; reply incomplete):
@@ -570,10 +603,10 @@ reply appears.
 - **SC-003**: In a thread STRIDEr has replied in, a follow-up with no mention is answered,
   and the answer uses something said earlier in the thread, in 10 of 10 tries.
 - **SC-004**: In 10 of 10 tries, a fact given in one thread is not known in another.
-- **SC-017**: When STRIDEr is first mentioned in a thread and asked about something said
+- **SC-017**: When STRIDEr first answers in a thread and is asked about something said
   earlier in it, the reply uses what was said, in 10 of 10 tries.
-- **SC-005**: Over a day of normal use, no message that is not answerable gets a reaction or
-  a reply.
+- **SC-005**: The unit tests for every rule in FR-008 and FR-009 pass, and in the trials of
+  `quickstart.md` no message that is not answerable gets a reaction or a reply.
 - **SC-006**: Of 100 requests sent to the address without a valid, recent signature, 100 are
   rejected and none causes a call to the agent or a post in Slack.
 - **SC-007**: Slack's check of the event delivery address succeeds on the first try once
@@ -581,6 +614,11 @@ reply appears.
 - **SC-008**: Every accepted event is acknowledged within 3 seconds, including when the
   agent takes more than 30 seconds to answer.
 - **SC-009**: The same event delivered 5 times produces one reaction and one reply.
+- **SC-020**: In no test and no trial does a person get two replies, or a reply and the
+  apology, for one message.
+- **SC-021**: In a thread older than the agent's memory, a person who mentions STRIDEr gets
+  the start-again sentence and the agent is not called, and a reply there with no mention
+  gets nothing. Shown by the unit tests, and tried for real once a thread is old enough.
 - **SC-018**: Once a reply or the apology has been posted, the eyes reaction is gone from
   the person's message within 5 seconds, in 19 of 20 tries.
 - **SC-010**: When the agent is made to fail, the person sees the apology within 5 minutes
@@ -589,12 +627,14 @@ reply appears.
   eyes reaction is removed.
 - **SC-019**: A message from a guest or from a person in another organisation never gets a
   reaction or a reply, in 10 of 10 tries.
-- **SC-011**: STRIDEr never replies to its own messages or to another bot's. A search of a
-  week's messages finds no such reply.
+- **SC-011**: The unit tests show that a message from a bot, or from STRIDEr itself, is
+  never answered, and in the trials of `quickstart.md` STRIDEr never replies to its own
+  messages.
 - **SC-012**: A search of the repository, the deployment's description of itself, a week of
   logs and a week of pipeline output finds no secret value.
-- **SC-013**: A search of a week of logs finds no message text and no reply text, and the
-  held-back store is empty within 10 minutes of any failure.
+- **SC-013**: A search of a week of logs finds no message text and no reply text. The
+  held-back store is empty within 10 minutes of a failure when the cleanup step succeeds,
+  and within 60 minutes in every case.
 - **SC-014**: The unit tests for all three programs pass on a machine with no access to the cloud
   account or to Slack.
 - **SC-015**: Starting from the state feature 006 left, the owner connects the app by
@@ -627,13 +667,16 @@ reply appears.
   record and a certificate for `engineering-agents.sandbox.serverlessops.io` in it.
 - **The address is public knowledge.** It is committed in `slack/settings.json` in a public
   repository. FR-002 and FR-007 are the protection, not secrecy.
-- **A thread is read once.** The agent is given the text of the message being answered.
-  At the first mention in a thread it is also given that thread's earlier messages
-  (FR-046), as the owner decided on 2026-11-16. After that, what came before is whatever
+- **Thread context is given once.** The agent is given the text of the message being
+  answered. The first time STRIDEr answers in a thread it is also given that thread's
+  earlier messages (FR-046), as the owner decided on 2026-11-16. After that, what came before is whatever
   the agent's memory holds for the session. STRIDEr never reads a channel's history.
-- **Earlier messages go in with the prompt.** The agent is not changed by this feature, so
-  the thread context reaches it as part of what it is asked, within the length it already
-  accepts. FR-047's rule for when it does not fit was chosen by the author. Believed and
+- **Earlier messages go in with the prompt.** The agent's program is not changed by this
+  feature, so the thread context reaches it as part of what it is asked, within the
+  length it accepts. That length is a setting, and 4,000 characters would cut most
+  threads short, so the owner chose on 2026-11-16 to raise it to 16,000 as part of this
+  feature. It is the one change this feature makes to the agent. FR-047's rule for when
+  the context still does not fit was chosen by the author. Believed and
   to be confirmed in planning: the permissions the Slack app already holds are enough to
   read a thread's messages.
 - **People in a thread did not write for STRIDEr.** Mentioning STRIDEr in a thread sends
@@ -650,6 +693,16 @@ reply appears.
 - **Starting values chosen by the author**: 5 seconds for the reaction (SC-001), 5 minutes
   for the apology (SC-010), 30 minutes for setup
   (SC-015), and the try counts in the success criteria.
+- **What a miss may be.** The one miss allowed in 20 tries (SC-001, SC-002, SC-018) is for
+  timing only: the reaction arriving or leaving late after one of the programs has
+  started cold. A missing or wrong reply is a failure in any number of tries. The counts
+  of 10 allow no miss, because they test rules and not timing. Agreed with the owner on
+  2026-11-16.
+- **SC-016 is met by design.** The address is a hostname the deployment owns, so it does
+  not change when the receiving service is rebuilt. It is not tested by removing the live
+  stack, which would also remove the agent and its memory.
+- **Logs are kept for 30 days.** Chosen by the owner on 2026-11-16: long enough to look
+  into a failure reported late, and nothing is kept without limit.
 - **How fast the agent answers is not this feature's to promise.** No criterion sets a time
   for the reply itself.
 - **One workspace, one environment.** The Slack app is installed in the `serverlessops`
@@ -659,7 +712,9 @@ reply appears.
 - **Order of the first-time steps.** The receiving service must be deployed and its secrets
   in place before Slack can check the address, and adding the reaction permission makes
   feature 006's pipeline fail until the app is installed again. Both are expected and the
-  handbook gives the order.
+  handbook gives the order. Between the merge and the install, the app cannot look people
+  up, so by FR-053 nobody is answered. STRIDEr starts answering once the app has been
+  installed again.
 - **A lost event is accepted.** If the receiving service is unreachable for as long as
   Slack keeps trying, that message is never answered and the person is not told.
 - **Membership is remembered for an hour.** A person who stops being a full member, for
@@ -668,8 +723,8 @@ reply appears.
 - **Full members only.** Decided by the owner on 2026-11-16. Planning found that nothing
   Slack sends with a message says its writer is a guest, so the receiving service asks
   Slack about the person, which needs one more permission in the app definition (FR-038).
-  That permission lets STRIDEr look up any member's profile. A person who is not answered
-  is not told why.
+  That permission lets STRIDEr look up any member's profile, which the owner accepted on
+  2026-11-16. A person who is not answered is not told why.
 - **Text waits for at most an hour.** Decided by the owner on 2026-11-16, in place of an
   earlier choice that held-back records carry no text. In practice a waiting message is
   answered in seconds and a held-back one is cleaned up in minutes. 60 minutes is the
@@ -685,6 +740,10 @@ reply appears.
   answer. The price is that every reply in any thread, in a channel STRIDEr is in, is
   looked at by the worker, and that the worker does not try an unfinished message again
   (FR-027).
+- **Facts not yet tried.** Planning read Slack's and the cloud platform's documentation
+  and tried nothing. `research.md` lists under "Open items" each fact this specification
+  depends on that is believed and not confirmed, with what changes if it is wrong. They
+  are checked when the feature first runs on `main`.
 - **Identifiers may be logged.** Slack IDs of people, channels and threads are written to
   logs. Text is not.
 - **Dependencies**: the Slack app and its values (006); the agent and its memory (001,

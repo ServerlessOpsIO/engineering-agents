@@ -72,10 +72,11 @@ How handling one message ends. Recorded in the worker's log record and nowhere e
 | `declined` | `not_member` | The writer is a guest, from another organisation, a bot or deleted (FR-008). | Nothing. |
 | `declined` | `thread_expired` | The thread is older than the agent's memory and STRIDEr was addressed. | The start-again sentence. |
 | `declined` | `too_long` | Over the agent's limit (FR-028). | The too-long sentence. |
-| `declined` | `nothing_asked` | No text once the mention is removed (FR-029). | The nothing-asked sentence. |
+| `declined` | `nothing_asked` | No text once the mention is removed (FR-029). | The nothing-asked sentence when the message mentioned STRIDEr or is a direct message. Otherwise nothing. |
 | `failed` | `agent_failed` | Both attempts failed. | The apology. |
 | `failed` | `thread_unreadable` | The thread could not be read from Slack, after retries. | The apology, if the message mentions STRIDEr and the writer is a full member. Otherwise nothing: the thread may not be STRIDEr's. |
 | `failed` | `membership_unknown` | Slack could not say who the writer is, after retries. | Nothing. |
+| `failed` | `identity_unknown` | Slack would not say what STRIDEr's own user ID is. | Nothing. |
 | `failed` | `reply_not_posted` | The agent answered and Slack would not take the reply, or some part of it. | The apology if no part was posted; the reply-incomplete sentence if some were. Nothing if Slack takes neither. |
 
 The cleanup function has outcomes of its own, for a message the worker did not finish:
@@ -116,7 +117,7 @@ when it reads a thread, so that they do not count as an answer.
 | Apology | Sorry, I couldn't answer that. Please try again later. |
 | Too long | That message is too long for me to read. Please shorten it and try again. |
 | Nothing asked | What would you like help with? |
-| Start again | I no longer remember this conversation. Please start a new one. |
+| Start again | I no longer remember this conversation. Please send me a new message outside this thread to start again. |
 | Reply incomplete | I couldn't post my whole reply. Please ask again. |
 
 A reply in more than one part has a last line on each part: `(part 1 of 3)`.

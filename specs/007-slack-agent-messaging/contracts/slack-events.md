@@ -45,7 +45,7 @@ detail of which check failed beyond "not authorised" or "bad request".
 | More than 5 requests a second | 429 | From API Gateway. Slack sends a genuine event again. |
 
 The function answers within 3 seconds or API Gateway returns an error and Slack retries.
-Its own timeout is 5 seconds.
+Its own timeout is 3 seconds.
 
 ### Which events are answerable here
 
@@ -72,11 +72,11 @@ and reasons are in `data-model.md`.
 
 | Step | Action | If not |
 |------|--------|--------|
+| 0 | If the thread began more than `MemoryEventExpiryDays` ago: do step 2, then add the eyes, post the start-again sentence, remove the eyes and stop, `declined`/`thread_expired`. The thread is not read. | Step 2 fails: as step 2. |
 | 1 | Only for a reply in a channel thread (`isReply` true, `channelType` not `im`): read the thread up to the message. Continue if the message or an earlier one mentions STRIDEr. | Never mentioned: stop, `declined`/`not_strider_thread`, nothing visible. Slack error after retries: if the message itself does not mention STRIDEr, stop, `failed`/`thread_unreadable`, nothing visible; if it does, do step 2 and then, for a full member, post the apology and stop, `failed`/`thread_unreadable`. |
 | 2 | `users.info` for the writer. A full member has the queued `teamId`, and is not restricted, a bot or deleted. | Not a full member: stop, `declined`/`not_member`. Slack cannot say after retries: stop, `failed`/`membership_unknown`. Nothing visible. |
 | 3 | `reactions.add` `eyes` on the message. | `already_reacted` is success. Anything else is logged and ignored. |
-| 3a | If the thread began more than `MemoryEventExpiryDays` ago: post the start-again sentence, remove the reaction and stop, `declined`/`thread_expired`. | |
-| 4 | Remove STRIDEr's mention from the text and trim it. | Nothing left: post the nothing-asked sentence, remove the reaction, stop, `declined`/`nothing_asked`. |
+| 4 | Remove STRIDEr's mention from the text and trim it. | Nothing left, and the message mentioned STRIDEr or is a direct message: post the nothing-asked sentence, remove the reaction, stop, `declined`/`nothing_asked`. Nothing left otherwise: remove the reaction and stop, `declined`/`nothing_asked`, nothing posted. |
 | 5 | Build the prompt (`research.md`, Decision 8), with the thread's earlier messages when step 1 read a thread STRIDEr has not answered in before. | The message alone is over `MaxPromptChars`: post the too-long sentence, remove the reaction, stop, `declined`/`too_long`. |
 | 6 | Call the agent. On a failed attempt wait 2 seconds and call once more. | `input_rejection`: as step 5. |
 | 7 | Both attempts failed: post the apology, remove the reaction, stop, `failed`/`agent_failed`. | |
@@ -87,6 +87,9 @@ Bounds: each agent call 100 seconds; the function 240 seconds. If the function i
 the queue moves the message to the held-back queue after 300 seconds. The worker does not
 run on it again (`research.md`, Decision 6); the cleanup function does (section 6). The
 worker itself never sends to the held-back queue.
+
+Before step 0 the worker needs STRIDEr's own user ID, from `auth.test`, to recognise a
+mention. If Slack will not give it: stop, `failed`/`identity_unknown`, nothing visible.
 
 The queued message is never logged, and neither is anything read from the thread.
 
@@ -102,7 +105,7 @@ cleanup function of section 6.
 | `users.info` | Step 2. Remembered for an hour. | `users:read` (new) |
 | `reactions.add`, `reactions.remove` | Step 3, and whenever the worker stops after it. Cleanup removes. | `reactions:write` (new) |
 | `conversations.replies` | Step 1, for a reply in a channel thread only. Cleanup, always. | `channels:history`, `groups:history`, `im:history` |
-| `chat.postMessage` with `markdown_text` and `thread_ts` | Steps 3a, 4, 5, 7 and 8. Cleanup, for the apology. | `chat:write` |
+| `chat.postMessage` with `markdown_text` and `thread_ts` | Steps 0, 4, 5, 7 and 8. Cleanup, for the apology. | `chat:write` |
 
 ## 5. The call to the agent
 

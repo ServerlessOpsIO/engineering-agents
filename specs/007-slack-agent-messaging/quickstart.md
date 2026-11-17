@@ -25,7 +25,7 @@ pipenv run test-unit
 Expected: all tests pass, including the agent's and the Slack app's existing tests
 (FR-043, FR-044, SC-014).
 
-## B. First-time setup (US3; SC-007, SC-015, SC-016)
+## B. First-time setup (US3; SC-007, SC-015)
 
 Follow `docs/handbook/09-slack-messaging.md` and nothing else. Time it. The steps, for
 reference:
@@ -59,7 +59,12 @@ Expected: eyes on the message within 5 seconds; a reply in a thread under it; th
 gone within 5 seconds of the reply. Post a message with no mention: nothing happens
 (SC-005).
 
-Also note, for `research.md` O9: whether adding and removing the reaction notified you.
+In the front door's log, find the record for this mention and note `durationMs`.
+Expected: under 3000, and under 1000 once the function is warm (SC-008).
+
+Also note, for `research.md` O9: whether adding and removing the reaction notified you,
+and for O12: read the thread while the eyes are on a message, and note whether the
+reaction and who added it are in what Slack returns.
 
 ## D. Forged requests are rejected (US2; SC-006)
 
@@ -98,11 +103,12 @@ top-level message asking about the first: it does not.
 ## G. Failures (US6; SC-009, SC-010)
 
 1. **Nothing asked**: post `@STRIDEr` alone. Expected: "What would you like help with?"
-2. **Too long**: post a mention followed by more than 4,000 characters. Expected: the
+2. **Too long**: post a mention followed by more than 16,000 characters. Expected: the
    too-long sentence.
 3. **The agent fails**: deploy with `ModelId` set to a model that does not exist, on a
    branch of the change if branch deployments are back, otherwise on `main` and reverted
-   straight after. Mention STRIDEr. Expected: the apology within 5 minutes; the eyes gone;
+   straight after. **This takes STRIDEr out of service until it is reverted.** Mention
+   STRIDEr. Expected: the apology within 5 minutes; the eyes gone;
    the worker's log has a record with `failed` and `agent_failed`; and nothing on the
    held-back queue:
 
@@ -112,16 +118,13 @@ top-level message asking about the first: it does not.
      "Stacks[0].Outputs[?OutputKey=='SlackHeldBackQueueUrl'].OutputValue" --output text)"
    ```
 
-4. **The worker dies**: on a branch of the change, or on `main` and reverted straight
-   after, set the worker's timeout to 5 seconds and deploy. Mention STRIDEr with a
-   question that takes the agent longer than that. Expected: the eyes appear and stay;
-   five to six minutes later the apology is posted and the eyes are removed; the cleanup
-   function's log has `cleaned_up` and `apologised`; the held-back queue is empty. Also
-   note whether the thread read showed the reaction (`research.md`, O12).
+4. **The worker dies**: covered by the unit tests of `CleanUpSlackMessage`. Not run
+   against the live stack, because it needs a code change to the worker's timeout.
 
-5. **An old thread**: deploy with `MemoryEventExpiryDays` set to its minimum, or wait.
-   In a thread STRIDEr answered in more than that many days ago, reply with no mention:
-   expected nothing. Mention STRIDEr there: expected the start-again sentence.
+5. **An old thread**: covered by the unit tests. Run for real only when a thread STRIDEr
+   answered in is more than 7 days old: reply there with no mention, expected nothing;
+   mention STRIDEr there, expected the start-again sentence. Do not lower
+   `MemoryEventExpiryDays` to test this; it also shortens the agent's real memory.
 
 6. **Duplicates**: covered by the unit tests. Also mention STRIDEr inside one of its
    threads and confirm from the logs that the mention arrived as two events and produced

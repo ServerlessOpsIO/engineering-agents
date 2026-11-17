@@ -292,9 +292,11 @@ the end lists what must be tried, and what happens if it turns out wrong.
   Earlier messages are dropped from the oldest until it fits, and the first line becomes
   "Some earlier messages were left out. The rest, oldest first:". If the message alone is
   over the limit, the worker posts the too-long sentence and does not call the agent.
-- **A limit worth knowing**: 4,000 characters is small for a thread. Raising
-  `MaxPromptChars` is a one-line change to `cfn-parameters.json` and changes nothing else.
-  It is the agent's setting, so this feature leaves it alone.
+- **The limit is raised**: 4,000 characters is small for a thread. The owner chose on
+  2026-11-16 to set `MaxPromptChars` to 16,000 in `cfn-parameters.json` as part of this
+  feature. It is the agent's setting and the one thing about the agent this feature
+  changes. It applies to every caller of the agent, not only Slack, and a longer prompt
+  costs more model input.
 
 ## Decision 9: Posting the reply
 
@@ -438,6 +440,8 @@ The order, which the handbook will give:
   person should be told when it has forgotten. Without this rule STRIDEr would answer in
   an old thread with no memory of it and without the thread's earlier messages, because
   it had "answered before" (Decision 5).
+- **Checked first.** The worker looks at the thread's age before it reads the thread, so
+  an old thread costs no call to Slack and cannot end in the apology by mistake.
 - **A bluntness to accept**: the cut-off is the thread's age, not the time since its last
   message. A thread still active on its eighth day is cut off too. By then the agent has
   lost the beginning of it.

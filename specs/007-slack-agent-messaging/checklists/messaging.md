@@ -10,81 +10,81 @@
 
 ## Requirement Completeness
 
-- [ ] CHK001 Is the path of the event delivery address stated in the spec, or only "a fixed path", with the actual value left to the plan? [Completeness, Spec §FR-001, Plan contracts §1]
-- [ ] CHK002 Are requirements stated for a thread that outlives the agent's memory of it, where STRIDEr has answered before, so the earlier messages are not given again, and the agent no longer remembers them? [Gap, Spec §FR-023, Spec §FR-046]
-- [ ] CHK003 Is it specified how long the function logs are kept, now that the log is "the lasting record" of a failure and only the access log has a retention period? [Gap, Spec §FR-026, Spec §FR-037]
-- [ ] CHK004 Are requirements defined for disconnecting STRIDEr from Slack again, for example turning events off if the receiving service misbehaves? [Gap, Recovery]
-- [ ] CHK005 Is it specified what the owner can do with a held-back message within its 60 minutes: only look at it, or also send it again, and if so how? [Completeness, Spec §Terms, Spec §FR-045, Spec §Assumptions "Out of scope"]
-- [ ] CHK006 Does the spec state how soon a replaced secret takes effect, or only that no change to the repository is needed? [Completeness, Spec §FR-032, Spec §US3 scenario 4, Plan research Decision 10]
-- [ ] CHK007 Are the wording of the apology and of the two other fixed sentences part of the requirements, or left to the plan's data model? [Completeness, Spec §FR-025, Spec §FR-028, Spec §FR-029, Plan data-model]
-- [ ] CHK008 Is a limit stated on how long one attempt to get the agent's answer may take before it counts as failed? [Gap, Spec §FR-024, Plan research Decision 7]
-- [ ] CHK009 Does the spec say what the thread's earlier messages include: messages from bots and other apps, STRIDEr's own fixed sentences, and messages that are only a file? [Completeness, Spec §FR-046]
-- [ ] CHK010 Are requirements stated for what the agent receives when a message contains Slack's own markup, such as mentions of other people, links and escaped characters? [Gap, Spec §FR-014]
-- [ ] CHK011 Is the plan's third departure from the convention template (the gateway's execution logging off, and handlers that do not log the event) reflected in the spec, which lists two exceptions? [Completeness, Spec §FR-042, Plan research Decision 11]
+- [x] CHK001 Is the path of the event delivery address stated in the spec, or only "a fixed path", with the actual value left to the plan? [Completeness, Spec §FR-001, Plan contracts §1]
+- [x] CHK002 Are requirements stated for a thread that outlives the agent's memory of it, where STRIDEr has answered before, so the earlier messages are not given again, and the agent no longer remembers them? [Gap, Spec §FR-023, Spec §FR-046]
+- [x] CHK003 Is it specified how long the function logs are kept, now that the log is "the lasting record" of a failure and only the access log has a retention period? [Gap, Spec §FR-026, Spec §FR-037]
+- [x] CHK004 Are requirements defined for disconnecting STRIDEr from Slack again, for example turning events off if the receiving service misbehaves? [Gap, Recovery]
+- [x] CHK005 Is it specified what the owner can do with a held-back message within its 60 minutes: only look at it, or also send it again, and if so how? [Completeness, Spec §Terms, Spec §FR-045, Spec §Assumptions "Out of scope"]
+- [x] CHK006 Does the spec state how soon a replaced secret takes effect, or only that no change to the repository is needed? [Completeness, Spec §FR-032, Spec §US3 scenario 4, Plan research Decision 10]
+- [x] CHK007 Are the wording of the apology and of the two other fixed sentences part of the requirements, or left to the plan's data model? [Completeness, Spec §FR-025, Spec §FR-028, Spec §FR-029, Plan data-model]
+- [x] CHK008 Is a limit stated on how long one attempt to get the agent's answer may take before it counts as failed? [Gap, Spec §FR-024, Plan research Decision 7]
+- [x] CHK009 Does the spec say what the thread's earlier messages include: messages from bots and other apps, STRIDEr's own fixed sentences, and messages that are only a file? [Completeness, Spec §FR-046]
+- [x] CHK010 Are requirements stated for what the agent receives when a message contains Slack's own markup, such as mentions of other people, links and escaped characters? [Gap, Spec §FR-014]
+- [x] CHK011 Is the plan's third departure from the convention template (the gateway's execution logging off, and handlers that do not log the event) reflected in the spec, which lists two exceptions? [Completeness, Spec §FR-042, Plan research Decision 11]
 
 ## Requirement Clarity
 
-- [ ] CHK012 Is "full member of the `serverlessops` workspace" defined precisely enough to classify every kind of writer: single-channel and multi-channel guests, deactivated accounts, people from another organisation, and workflow or app users? [Clarity, Spec §FR-008, Spec §FR-009]
-- [ ] CHK013 Is "a notice Slack generates itself" defined by a list or a rule, or left to interpretation? [Ambiguity, Spec §FR-009]
-- [ ] CHK014 Is "a thread in which STRIDEr has already been mentioned" clear when the earlier mention was made by someone STRIDEr does not answer, such as a guest? [Clarity, Spec §FR-008 rule 3]
-- [ ] CHK015 Is the rate limit of FR-007 quantified in the spec, or is "set in planning" still the only statement? [Clarity, Spec §FR-007, Plan research Decision 11]
-- [ ] CHK016 Is "the reply MUST read correctly in Slack" stated in a way that can be judged, for example by naming the kinds of formatting that must survive? [Measurability, Spec §FR-018]
-- [ ] CHK017 Is "longer than Slack accepts in one message" given as a number, and is where a long reply may be split specified? [Clarity, Spec §FR-017]
-- [ ] CHK018 Is it clear what "the worker MUST tell the agent that some were left out" requires, given the agent is not changed by this feature? [Clarity, Spec §FR-047]
-- [ ] CHK019 Is "as information only" for the person's Slack ID specific about where the ID goes and what must not depend on it? [Clarity, Spec §FR-019, Plan research Decision 8]
-- [ ] CHK020 Is the total time message text may exist outside Slack stated consistently: "60 minutes" in FR-026, two periods of 60 minutes in FR-049, and "about two hours" in the assumptions? [Clarity, Spec §FR-026, Spec §FR-049, Spec §Assumptions]
+- [x] CHK012 Is "full member of the `serverlessops` workspace" defined precisely enough to classify every kind of writer: single-channel and multi-channel guests, deactivated accounts, people from another organisation, and workflow or app users? [Clarity, Spec §FR-008, Spec §FR-009]
+- [x] CHK013 Is "a notice Slack generates itself" defined by a list or a rule, or left to interpretation? [Ambiguity, Spec §FR-009]
+- [x] CHK014 Is "a thread in which STRIDEr has already been mentioned" clear when the earlier mention was made by someone STRIDEr does not answer, such as a guest? [Clarity, Spec §FR-008 rule 3]
+- [x] CHK015 Is the rate limit of FR-007 quantified in the spec, or is "set in planning" still the only statement? [Clarity, Spec §FR-007, Plan research Decision 11]
+- [x] CHK016 Is "the reply MUST read correctly in Slack" stated in a way that can be judged, for example by naming the kinds of formatting that must survive? [Measurability, Spec §FR-018]
+- [x] CHK017 Is "longer than Slack accepts in one message" given as a number, and is where a long reply may be split specified? [Clarity, Spec §FR-017]
+- [x] CHK018 Is it clear what "the worker MUST tell the agent that some were left out" requires, given the agent is not changed by this feature? [Clarity, Spec §FR-047]
+- [x] CHK019 Is "as information only" for the person's Slack ID specific about where the ID goes and what must not depend on it? [Clarity, Spec §FR-019, Plan research Decision 8]
+- [x] CHK020 Is the total time message text may exist outside Slack stated consistently: "60 minutes" in FR-026, two periods of 60 minutes in FR-049, and "about two hours" in the assumptions? [Clarity, Spec §FR-026, Spec §FR-049, Spec §Assumptions]
 
 ## Requirement Consistency
 
-- [ ] CHK021 Does "the person is never left with an eyes reaction and nothing else" in User Story 6 conflict with FR-027, under which a message whose handling is cut short gets neither a reply nor the apology? [Conflict, Spec §US6, Spec §FR-027]
-- [ ] CHK022 Are the two cases where Slack cannot be asked treated consistently: a thread that cannot be read is held back, while a writer whose membership cannot be found out is dropped silently? [Consistency, Spec §Edge Cases, Spec §FR-008]
-- [ ] CHK023 Is FR-014's "nothing else changed" consistent with FR-046, under which the agent is sent the thread's earlier messages together with the message? [Consistency, Spec §FR-014, Spec §FR-046]
-- [ ] CHK024 Do FR-008 rule 3 (a thread where STRIDEr "has been mentioned") and FR-046 (the first time STRIDEr "answers") use the two different conditions deliberately, and is the difference explained? [Consistency, Spec §FR-008, Spec §FR-046]
-- [ ] CHK025 Is FR-006 consistent with FR-010 and SC-005 now that messages from unrelated threads are passed to the worker before being dropped? [Consistency, Spec §FR-006, Spec §FR-010, Spec §SC-005]
-- [ ] CHK026 Does the Clarifications section read without contradiction after the owner's later decisions, including the replaced answer on held-back text and the entry recording the author's corrections? [Consistency, Spec §Clarifications]
-- [ ] CHK027 Are the terms "front door", "worker", "receiving service" and "held-back store" used with one meaning each across the stories, requirements and assumptions? [Consistency, Spec §Terms]
-- [ ] CHK028 Is FR-022's ordering within a thread consistent with a thread's later messages waiting several minutes after a message is cut short, and is that wait stated anywhere in the spec? [Consistency, Spec §FR-022, Spec §FR-027, Plan research Decision 7]
+- [x] CHK021 Does "the person is never left with an eyes reaction and nothing else" in User Story 6 conflict with FR-027, under which a message whose handling is cut short gets neither a reply nor the apology? [Conflict, Spec §US6, Spec §FR-027]
+- [x] CHK022 Are the two cases where Slack cannot be asked treated consistently: a thread that cannot be read is held back, while a writer whose membership cannot be found out is dropped silently? [Consistency, Spec §Edge Cases, Spec §FR-008]
+- [x] CHK023 Is FR-014's "nothing else changed" consistent with FR-046, under which the agent is sent the thread's earlier messages together with the message? [Consistency, Spec §FR-014, Spec §FR-046]
+- [x] CHK024 Do FR-008 rule 3 (a thread where STRIDEr "has been mentioned") and FR-046 (the first time STRIDEr "answers") use the two different conditions deliberately, and is the difference explained? [Consistency, Spec §FR-008, Spec §FR-046]
+- [x] CHK025 Is FR-006 consistent with FR-010 and SC-005 now that messages from unrelated threads are passed to the worker before being dropped? [Consistency, Spec §FR-006, Spec §FR-010, Spec §SC-005]
+- [x] CHK026 Does the Clarifications section read without contradiction after the owner's later decisions, including the replaced answer on held-back text and the entry recording the author's corrections? [Consistency, Spec §Clarifications]
+- [x] CHK027 Are the terms "front door", "worker", "receiving service" and "held-back store" used with one meaning each across the stories, requirements and assumptions? [Consistency, Spec §Terms]
+- [x] CHK028 Is FR-022's ordering within a thread consistent with a thread's later messages waiting several minutes after a message is cut short, and is that wait stated anywhere in the spec? [Consistency, Spec §FR-022, Spec §FR-027, Plan research Decision 7]
 
 ## Acceptance Criteria Quality
 
-- [ ] CHK029 Can SC-005 and SC-011 ("over a day", "a search of a week's messages") be checked by a stated procedure, or do they depend on judgement? [Measurability, Spec §SC-005, Spec §SC-011]
-- [ ] CHK030 Is there a success criterion for FR-027's guarantee that a message is never handled twice, including after the worker is cut short? [Gap, Spec §FR-027, Spec §SC-009]
-- [ ] CHK031 Is there a success criterion for FR-047, the case where a thread's earlier messages do not fit? [Gap, Spec §FR-047, Spec §SC-017]
-- [ ] CHK032 Can SC-013's "two hours after the last failure the held-back store is empty" be verified given that it rests on an unverified belief about how the queue counts time? [Measurability, Spec §SC-013, Plan research O10]
-- [ ] CHK033 Are the "19 of 20" and "10 of 10" counts justified, and is it stated what a miss is allowed to be? [Clarity, Spec §SC-001, Spec §SC-003, Spec §SC-018]
+- [x] CHK029 Can SC-005 and SC-011 ("over a day", "a search of a week's messages") be checked by a stated procedure, or do they depend on judgement? [Measurability, Spec §SC-005, Spec §SC-011]
+- [x] CHK030 Is there a success criterion for FR-027's guarantee that a message is never handled twice, including after the worker is cut short? [Gap, Spec §FR-027, Spec §SC-009]
+- [x] CHK031 Is there a success criterion for FR-047, the case where a thread's earlier messages do not fit? [Gap, Spec §FR-047, Spec §SC-017]
+- [x] CHK032 Can SC-013's "two hours after the last failure the held-back store is empty" be verified given that it rests on an unverified belief about how the queue counts time? [Measurability, Spec §SC-013, Plan research O10]
+- [x] CHK033 Are the "19 of 20" and "10 of 10" counts justified, and is it stated what a miss is allowed to be? [Clarity, Spec §SC-001, Spec §SC-003, Spec §SC-018]
 
 ## Scenario Coverage
 
-- [ ] CHK034 Are requirements defined for a person who edits a message to add a mention of STRIDEr after sending it? [Coverage, Spec §Edge Cases, Spec §FR-009]
-- [ ] CHK035 Are requirements defined for a reply also sent to the channel, and for a message that is only a file in a thread STRIDEr is in? [Coverage, Spec §Edge Cases, Plan research S11]
-- [ ] CHK036 Are requirements defined for STRIDEr being removed from a channel, or the channel being archived, between a message and its reply? [Coverage, Gap, Exception Flow]
-- [ ] CHK037 Is the behaviour for a guest who sends STRIDEr a direct message covered, and is "not told why" intended there too? [Coverage, Spec §FR-008, Spec §Assumptions "Full members only"]
-- [ ] CHK038 Are requirements stated for the period between merging and the owner finishing the manual steps, when events may already arrive but the app lacks its new permissions? [Coverage, Spec §US3 scenario 5, Plan research Decision 14, Plan research O8]
-- [ ] CHK039 Are requirements defined for a burst of genuine messages from members, as distinct from a flood of forged requests, including any limit on what it may cost? [Coverage, Spec §FR-007, Gap]
+- [x] CHK034 Are requirements defined for a person who edits a message to add a mention of STRIDEr after sending it? [Coverage, Spec §Edge Cases, Spec §FR-009]
+- [x] CHK035 Are requirements defined for a reply also sent to the channel, and for a message that is only a file in a thread STRIDEr is in? [Coverage, Spec §Edge Cases, Plan research S11]
+- [x] CHK036 Are requirements defined for STRIDEr being removed from a channel, or the channel being archived, between a message and its reply? [Coverage, Gap, Exception Flow]
+- [x] CHK037 Is the behaviour for a guest who sends STRIDEr a direct message covered, and is "not told why" intended there too? [Coverage, Spec §FR-008, Spec §Assumptions "Full members only"]
+- [x] CHK038 Are requirements stated for the period between merging and the owner finishing the manual steps, when events may already arrive but the app lacks its new permissions? [Coverage, Spec §US3 scenario 5, Plan research Decision 14, Plan research O8]
+- [x] CHK039 Are requirements defined for a burst of genuine messages from members, as distinct from a flood of forged requests, including any limit on what it may cost? [Coverage, Spec §FR-007, Gap]
 
 ## Edge Case Coverage
 
-- [ ] CHK040 Is the outcome specified when the eyes reaction was added and handling is then cut short, so the reaction stays on the message? [Edge Case, Spec §FR-013, Spec §FR-027]
-- [ ] CHK041 Is the behaviour for a mention of STRIDEr in a group direct message stated firmly enough to test, given the spec says it is not known what Slack does? [Edge Case, Spec §Edge Cases, Issue #13]
-- [ ] CHK042 Is it specified what happens to a message that waits more than 60 minutes without being answered, and whether the person is told? [Edge Case, Spec §FR-049, Plan research Decision 4]
-- [ ] CHK043 Does the spec say that a message from a thread that turns out not to be STRIDEr's can be held back with its text when the thread cannot be read? [Edge Case, Spec §Edge Cases, Spec §FR-026]
-- [ ] CHK044 Is the case where Slack delivers the same message a third time after five minutes, which the plan accepts may produce two replies, recorded in the spec as an accepted exception to FR-011 and FR-027? [Edge Case, Spec §FR-011, Spec §FR-027, Plan research Decision 6]
+- [x] CHK040 Is the outcome specified when the eyes reaction was added and handling is then cut short, so the reaction stays on the message? [Edge Case, Spec §FR-013, Spec §FR-027]
+- [x] CHK041 Is the behaviour for a mention of STRIDEr in a group direct message stated firmly enough to test, given the spec says it is not known what Slack does? [Edge Case, Spec §Edge Cases, Issue #13]
+- [x] CHK042 Is it specified what happens to a message that waits more than 60 minutes without being answered, and whether the person is told? [Edge Case, Spec §FR-049, Plan research Decision 4]
+- [x] CHK043 Does the spec say that a message from a thread that turns out not to be STRIDEr's can be held back with its text when the thread cannot be read? [Edge Case, Spec §Edge Cases, Spec §FR-026]
+- [x] CHK044 Is the case where Slack delivers the same message a third time after five minutes, which the plan accepts may produce two replies, recorded in the spec as an accepted exception to FR-011 and FR-027? [Edge Case, Spec §FR-011, Spec §FR-027, Plan research Decision 6]
 
 ## Non-Functional Requirements
 
-- [ ] CHK045 Do the requirements say that text waiting to be answered includes messages from threads STRIDEr is not part of, and is that covered by the privacy requirements? [Completeness, Spec §FR-049, Spec §Assumptions "No record of its own"]
-- [ ] CHK046 Is the requirement that text is never logged stated for every place text passes through: errors and stack traces, the thread's earlier messages, and the agent's reply? [Coverage, Spec §FR-033]
-- [ ] CHK047 Are the access each part needs and must not have stated precisely enough to review a permission policy against? [Clarity, Spec §FR-034]
-- [ ] CHK048 Is logging the Slack IDs of people stated as a decision, with its reason, and not only as an assumption? [Clarity, Spec §FR-035, Spec §Assumptions "Identifiers may be logged"]
-- [ ] CHK049 Are the requirements on the new permission to look up a person limited to what the membership rule needs, and is its wider reach recorded as accepted by the owner? [Completeness, Spec §FR-038, Spec §Assumptions "Full members only"]
+- [x] CHK045 Do the requirements say that text waiting to be answered includes messages from threads STRIDEr is not part of, and is that covered by the privacy requirements? [Completeness, Spec §FR-049, Spec §Assumptions "No record of its own"]
+- [x] CHK046 Is the requirement that text is never logged stated for every place text passes through: errors and stack traces, the thread's earlier messages, and the agent's reply? [Coverage, Spec §FR-033]
+- [x] CHK047 Are the access each part needs and must not have stated precisely enough to review a permission policy against? [Clarity, Spec §FR-034]
+- [x] CHK048 Is logging the Slack IDs of people stated as a decision, with its reason, and not only as an assumption? [Clarity, Spec §FR-035, Spec §Assumptions "Identifiers may be logged"]
+- [x] CHK049 Are the requirements on the new permission to look up a person limited to what the membership rule needs, and is its wider reach recorded as accepted by the owner? [Completeness, Spec §FR-038, Spec §Assumptions "Full members only"]
 
 ## Dependencies & Assumptions
 
-- [ ] CHK050 Is each fact the plan lists as unverified (research O2 to O11) reflected in the spec as an assumption, with what changes if it is wrong? [Assumption, Plan research "Open items"]
-- [ ] CHK051 Is the dependence on the agent's 4,000-character limit, which the plan says will cut most thread context, recorded in the spec with the owner's decision on whether to raise it? [Dependency, Spec §FR-047, Plan research Decision 8]
-- [ ] CHK052 Is the decision to handle a message only once, against the platform vendor's advice, recorded in the spec with the risk the owner accepted? [Assumption, Spec §FR-027, Plan research Decision 6]
-- [ ] CHK053 Are the owner's manual steps listed completely and in order in the requirements, including the comparison of the bot token after installing again? [Completeness, Spec §FR-045, Spec §Assumptions "Order of the first-time steps", Plan research Decision 14]
-- [ ] CHK054 Is the decision not to send the person's ID as the agent's actor, so that a thread shares one memory, stated as a requirement and not only in the plan? [Gap, Spec §FR-019, Spec §FR-020, Plan research Decision 8]
+- [x] CHK050 Is each fact the plan lists as unverified (research O2 to O11) reflected in the spec as an assumption, with what changes if it is wrong? [Assumption, Plan research "Open items"]
+- [x] CHK051 Is the dependence on the agent's 4,000-character limit, which the plan says will cut most thread context, recorded in the spec with the owner's decision on whether to raise it? [Dependency, Spec §FR-047, Plan research Decision 8]
+- [x] CHK052 Is the decision to handle a message only once, against the platform vendor's advice, recorded in the spec with the risk the owner accepted? [Assumption, Spec §FR-027, Plan research Decision 6]
+- [x] CHK053 Are the owner's manual steps listed completely and in order in the requirements, including the comparison of the bot token after installing again? [Completeness, Spec §FR-045, Spec §Assumptions "Order of the first-time steps", Plan research Decision 14]
+- [x] CHK054 Is the decision not to send the person's ID as the agent's actor, so that a thread shares one memory, stated as a requirement and not only in the plan? [Gap, Spec §FR-019, Spec §FR-020, Plan research Decision 8]
 
 ## Added 2026-11-16, after the design changed
 
@@ -92,42 +92,42 @@ The items above were written before the owner chose a cleanup step on the held-b
 
 ### Requirement Completeness
 
-- [ ] CHK055 Is it specified whether the eyes reaction is added when STRIDEr is addressed in a thread older than the agent's memory, where it replies with the start-again sentence and does not call the agent? [Gap, Spec §FR-013, Spec §FR-050]
-- [ ] CHK056 Is the wording of the start-again sentence part of the requirements, or left to the plan's data model? [Completeness, Spec §FR-050, Plan data-model]
-- [ ] CHK057 Does FR-035 say what the cleanup step's log record must contain, as it does for the front door and the worker? [Completeness, Spec §FR-035]
-- [ ] CHK058 Are success criteria defined for FR-050 (threads older than the agent's memory) and FR-051 (messages more than 4 minutes old)? [Gap, Spec §FR-050, Spec §FR-051]
-- [ ] CHK059 Is the fact the cleanup step depends on, that reading a thread shows a message's reactions and who added them, recorded in the spec as unverified, with what happens if it is wrong? [Assumption, Spec §Assumptions "The reaction is how the cleanup step knows", Plan research O12]
-- [ ] CHK060 Does the spec say what the handbook must tell the owner about finding a failure, now that the held-back store is emptied by the cleanup step, including which log to look in? [Completeness, Spec §FR-045]
+- [x] CHK055 Is it specified whether the eyes reaction is added when STRIDEr is addressed in a thread older than the agent's memory, where it replies with the start-again sentence and does not call the agent? [Gap, Spec §FR-013, Spec §FR-050]
+- [x] CHK056 Is the wording of the start-again sentence part of the requirements, or left to the plan's data model? [Completeness, Spec §FR-050, Plan data-model]
+- [x] CHK057 Does FR-035 say what the cleanup step's log record must contain, as it does for the front door and the worker? [Completeness, Spec §FR-035]
+- [x] CHK058 Are success criteria defined for FR-050 (threads older than the agent's memory) and FR-051 (messages more than 4 minutes old)? [Gap, Spec §FR-050, Spec §FR-051]
+- [x] CHK059 Is the fact the cleanup step depends on, that reading a thread shows a message's reactions and who added them, recorded in the spec as unverified, with what happens if it is wrong? [Assumption, Spec §Assumptions "The reaction is how the cleanup step knows", Plan research O12]
+- [x] CHK060 Does the spec say what the handbook must tell the owner about finding a failure, now that the held-back store is emptied by the cleanup step, including which log to look in? [Completeness, Spec §FR-045]
 
 ### Requirement Clarity
 
-- [ ] CHK061 Is "STRIDEr has posted nothing in the thread since" defined: which posts count, and why a post there cannot belong to a different message? [Clarity, Spec §FR-026, Plan research Decision 15]
-- [ ] CHK062 Is "began longer ago than the agent keeps memory" tied to a named setting and to the thread's start, so two readers would compute the same cut-off? [Clarity, Spec §FR-050]
-- [ ] CHK063 Is "more than 4 minutes old when it arrives" clear about which time is compared with which, and about what happens when the two clocks disagree? [Clarity, Spec §FR-051]
-- [ ] CHK064 Is the status of the two rules marked "pending the owner" in the Clarifications section clear enough that a reader knows whether FR-051 and the failure handling for "Slack cannot be asked" are requirements yet? [Ambiguity, Spec §Clarifications]
-- [ ] CHK065 Is "a message MUST NOT stay in the held-back store for more than 60 minutes" clear about what happens to the person and the eyes reaction when that limit is reached? [Clarity, Spec §FR-026, Spec §Edge Cases]
+- [x] CHK061 Is "STRIDEr has posted nothing in the thread since" defined: which posts count, and why a post there cannot belong to a different message? [Clarity, Spec §FR-026, Plan research Decision 15]
+- [x] CHK062 Is "began longer ago than the agent keeps memory" tied to a named setting and to the thread's start, so two readers would compute the same cut-off? [Clarity, Spec §FR-050]
+- [x] CHK063 Is "more than 4 minutes old when it arrives" clear about which time is compared with which, and about what happens when the two clocks disagree? [Clarity, Spec §FR-051]
+- [x] CHK064 Is the status of the two rules marked "pending the owner" in the Clarifications section clear enough that a reader knows whether FR-051 and the failure handling for "Slack cannot be asked" are requirements yet? [Ambiguity, Spec §Clarifications]
+- [x] CHK065 Is "a message MUST NOT stay in the held-back store for more than 60 minutes" clear about what happens to the person and the eyes reaction when that limit is reached? [Clarity, Spec §FR-026, Spec §Edge Cases]
 
 ### Requirement Consistency
 
-- [ ] CHK066 Are FR-049's limits (60 minutes waiting, 60 more held back) consistent with SC-013, which expects the held-back store empty within 10 minutes of any failure? [Consistency, Spec §FR-049, Spec §SC-013]
-- [ ] CHK067 Is FR-050 consistent with FR-008 rule 3 and FR-046, so that a mention in an old thread is neither treated as answerable nor given the thread's earlier messages? [Consistency, Spec §FR-008, Spec §FR-046, Spec §FR-050]
-- [ ] CHK068 Is FR-051's 4 minutes consistent with FR-002's 5 minutes, and is it explained why the two differ? [Consistency, Spec §FR-002, Spec §FR-051]
-- [ ] CHK069 Does every statement that the person "gets the reply or the apology" agree with the cases where the spec says they get nothing: the cleanup step failing for an hour, the eyes never having been added, and Slack refusing posts? [Consistency, Spec §US6, Spec §FR-026, Spec §Edge Cases]
-- [ ] CHK070 Do the spec's counts of parts and programs agree throughout, now that there are three, including the original input's "both handlers"? [Consistency, Spec §Terms, Spec §FR-042, Spec §FR-043, Spec §SC-014]
-- [ ] CHK071 Is SC-010's "within 10 minutes" for a stopped worker consistent with the assumption that the apology comes five to six minutes after the worker stopped? [Consistency, Spec §SC-010, Spec §Assumptions]
+- [x] CHK066 Are FR-049's limits (60 minutes waiting, 60 more held back) consistent with SC-013, which expects the held-back store empty within 10 minutes of any failure? [Consistency, Spec §FR-049, Spec §SC-013]
+- [x] CHK067 Is FR-050 consistent with FR-008 rule 3 and FR-046, so that a mention in an old thread is neither treated as answerable nor given the thread's earlier messages? [Consistency, Spec §FR-008, Spec §FR-046, Spec §FR-050]
+- [x] CHK068 Is FR-051's 4 minutes consistent with FR-002's 5 minutes, and is it explained why the two differ? [Consistency, Spec §FR-002, Spec §FR-051]
+- [x] CHK069 Does every statement that the person "gets the reply or the apology" agree with the cases where the spec says they get nothing: the cleanup step failing for an hour, the eyes never having been added, and Slack refusing posts? [Consistency, Spec §US6, Spec §FR-026, Spec §Edge Cases]
+- [x] CHK070 Do the spec's counts of parts and programs agree throughout, now that there are three, including the original input's "both handlers"? [Consistency, Spec §Terms, Spec §FR-042, Spec §FR-043, Spec §SC-014]
+- [x] CHK071 Is SC-010's "within 10 minutes" for a stopped worker consistent with the assumption that the apology comes five to six minutes after the worker stopped? [Consistency, Spec §SC-010, Spec §Assumptions]
 
 ### Scenario and Edge Case Coverage
 
-- [ ] CHK072 Are requirements defined for the cleanup step when the person's message has been deleted, or the thread cannot be read, by the time it runs? [Coverage, Spec §FR-026, Gap]
-- [ ] CHK073 Is the case covered where the worker stopped after posting one of the other fixed sentences, or part of a long reply, so the cleanup step finds a post but the person's answer is incomplete? [Edge Case, Spec §FR-017, Spec §FR-026]
-- [ ] CHK074 Are requirements stated for a thread that crosses the memory cut-off while a conversation is under way, including whether the person is warned beforehand? [Coverage, Spec §FR-050]
-- [ ] CHK075 Is it specified what a person in a direct message sees when their message is ignored for being more than 4 minutes old, given that a direct message always expects an answer? [Edge Case, Spec §FR-051]
-- [ ] CHK076 Does the spec say that later messages in a thread wait while an unfinished message is on its way to the held-back store, and for how long? [Gap, Spec §FR-022, Spec §Assumptions "A crashed worker's apology is slow"]
+- [x] CHK072 Are requirements defined for the cleanup step when the person's message has been deleted, or the thread cannot be read, by the time it runs? [Coverage, Spec §FR-026, Gap]
+- [x] CHK073 Is the case covered where the worker stopped after posting one of the other fixed sentences, or part of a long reply, so the cleanup step finds a post but the person's answer is incomplete? [Edge Case, Spec §FR-017, Spec §FR-026]
+- [x] CHK074 Are requirements stated for a thread that crosses the memory cut-off while a conversation is under way, including whether the person is warned beforehand? [Coverage, Spec §FR-050]
+- [x] CHK075 Is it specified what a person in a direct message sees when their message is ignored for being more than 4 minutes old, given that a direct message always expects an answer? [Edge Case, Spec §FR-051]
+- [x] CHK076 Does the spec say that later messages in a thread wait while an unfinished message is on its way to the held-back store, and for how long? [Gap, Spec §FR-022, Spec §Assumptions "A crashed worker's apology is slow"]
 
 ### Non-Functional Requirements
 
-- [ ] CHK077 Are the cleanup step's access limits stated so that a permission policy can be reviewed against them, including that it must not be able to call the agent? [Clarity, Spec §FR-034]
-- [ ] CHK078 Is it a requirement that the cleanup step, which receives message text, never logs it, or does FR-033 need to name it? [Coverage, Spec §FR-033, Spec §FR-026]
+- [x] CHK077 Are the cleanup step's access limits stated so that a permission policy can be reviewed against them, including that it must not be able to call the agent? [Clarity, Spec §FR-034]
+- [x] CHK078 Is it a requirement that the cleanup step, which receives message text, never logs it, or does FR-033 need to name it? [Coverage, Spec §FR-033, Spec §FR-026]
 
 ## Notes
 
@@ -140,3 +140,12 @@ The items above were written before the owner chose a cleanup step on the held-b
 - Generated after planning and after the owner's later decisions of 2026-11-16 (no database, text in the queue, 60-minute held-back lifetime, group direct messages out of scope), with no clarifying questions asked: depth standard, audience the owner before `/speckit-tasks`.
 - Appended on 2026-11-16 by a second run of `/speckit-checklist`: CHK055 to CHK078. Earlier items were not changed or marked.
 - Earlier items the later design changes speak to, for the reviewer to judge: CHK002 (FR-050 added); CHK005 (the held-back store is no longer for looking at); CHK020 and CHK032 (FR-049 and SC-013 reworded); CHK021 and CHK040 (cleanup step added); CHK022 (both cases now logged failures, pending the owner); CHK030 (FR-027 reworded); CHK043 (nothing is held back when a thread cannot be read); CHK044 (FR-051 added, pending the owner); CHK052 (the risk changed: an unfinished message now goes to the cleanup step).
+- Assessed on 2026-11-16 by the author at the owner's request, against the spec as it stood after the analysis fixes: 47 items marked satisfied. The 31 left unmarked are 22 that need a small change to the spec (CHK001, 004, 006, 008, 009, 013, 014, 015, 016, 017, 024, 035, 038, 042, 045, 046, 050, 054, 059, 069, 072, 074) and 9 that need the owner's decision (CHK007, 029, 030, 031, 033, 049, 051, 056, 058).
+- On 2026-11-16 the owner accepted the author's proposals for the 31 open items. The spec was changed for 22 of them; CHK030 gained SC-020; the owner accepted the reach of the lookup permission (CHK049) and raised the agent's prompt limit to 16,000 characters (CHK051). Those 25 are now marked. Six are left unmarked because the owner chose not to act on them: CHK007 and CHK056 (the fixed sentences' wording stays in the plan's data model), CHK029 and CHK033 (the success criteria's observation periods and try counts stay as they are), and CHK031 and CHK058 (no success criteria for FR-047, FR-050 and FR-051; unit tests cover them).
+- CHK007: the owner read the four sentences on 2026-11-16, accepted them, and chose to keep the wording in `data-model.md`.
+- CHK056: on 2026-11-16 the owner chose the wording "I no longer remember this conversation. Please send me a new message outside this thread to start again.", kept in `data-model.md`.
+- CHK029: on 2026-11-16 the owner had SC-005 and SC-011 reworded to what is checked on the day: the unit tests and the quickstart trials.
+- CHK031: on 2026-11-16 the owner decided FR-047 needs no success criterion of its own; its unit tests are the check.
+- CHK033: on 2026-11-16 the owner had the spec say what the one allowed miss may be: timing only.
+- CHK058: on 2026-11-16 the owner had SC-021 added for FR-050 and left FR-051 to its unit tests.
+- All 78 items are now marked. The earlier note that six were left unmarked is overtaken by the six notes above: the owner went through each on 2026-11-16.

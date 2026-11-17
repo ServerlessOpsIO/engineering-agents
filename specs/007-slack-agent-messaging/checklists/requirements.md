@@ -40,5 +40,6 @@
 - Added by the author while recording those answers: what happens when a thread's earlier messages do not fit (FR-047), and that a person whose membership cannot be found out is not answered.
 - The spec was revised on 2026-11-16 during planning. The owner removed the database, chose to carry message text in the queue, and set the held-back lifetime to 60 minutes: FR-006, FR-026, FR-027, FR-046, FR-049, SC-010 and SC-013 changed. Planning findings changed FR-036 and FR-038 and one edge case. All 16 items were re-checked by the author afterwards and still pass.
 - Revised again on 2026-11-16 after the owner reviewed `messaging.md`: a cleanup step on the held-back store (FR-026, FR-027), threads older than the agent's memory (FR-050), and two rules the author applied pending the owner's yes (FR-051, and treating both "Slack cannot be asked" cases as logged failures). All 16 items were re-checked by the author afterwards and still pass.
+- Revised on 2026-11-16 after `/speckit-analyze` and the review of `messaging.md`: wording fixes, FR-053 case 4, SC-020, log retention, and the raised prompt limit. Re-checked by the author; all 16 items still pass.
 - The 5-second, 5-minute and 30-minute values and the try counts are starting values chosen by the author.
 - Items marked incomplete require spec updates before `/speckit-clarify` or `/speckit-plan`

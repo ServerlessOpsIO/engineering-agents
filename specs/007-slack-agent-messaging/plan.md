@@ -59,9 +59,9 @@ worker itself dies (SC-010).
 - The worker handles a queued message once and never runs on it again (FR-027).
 - A message more than 4 minutes old is ignored, and a thread older than the agent's
   memory is no longer answered in.
-- The agent, its template resources and its tests are not changed.
-- The whole prompt, thread context included, must fit in the agent's `MaxPromptChars`
-  (4,000).
+- The whole prompt, thread context included, must fit in the agent's `MaxPromptChars`,
+  raised from 4,000 to 16,000 by this feature.
+- The agent's code and its template resources are not changed. One of its settings is.
 - The repository is public, and so is the address.
 - Branch deployments are off (issue #10); the first real run is on `main`.
 
@@ -128,9 +128,10 @@ These follow from the spec but were made by the author during planning. Each is 
 14. **Parameter Store, not Secrets Manager** (Decision 10). Free, and already the
     convention.
 15. **`slack_sdk` in the worker** (Decision 13), where feature 006 used none.
-16. **4,000 characters is small for thread context** (Decision 8). Most threads of any
-    length will have their oldest messages left out. Raising `MaxPromptChars` is a
-    one-line change the owner may want; this feature does not make it.
+16. **The agent's prompt limit is raised from 4,000 to 16,000 characters** (Decision 8),
+    chosen by the owner, so that thread context is not cut short in most threads. It is a
+    one-line change to `cfn-parameters.json` and the only change this feature makes to
+    the agent. Every caller of the agent may now send a longer prompt.
 17. **The first merge makes the Slack app workflow fail** until the app is installed again
     (Decision 14). That is feature 006 working as designed.
 18. **Starting values**: 5 requests a second; 100 seconds per agent call; replies split at
@@ -234,10 +235,12 @@ test-unit` already runs every unit test.
 ## Implementation notes
 
 - **Order of work**: shared package and its tests first; then the front door, which can be
-  proven alone by Slack's address check; then the worker; then the cleanup function; then
-  the manifest and settings
-  change, which is what turns events on. Keeping the settings change last means nothing
-  reaches the worker before it exists.
+  proven alone by Slack's address check; then the worker; then the cleanup function. The
+  manifest and settings change is what turns events on. It is written in Phase 5 of the
+  tasks and reaches `main` only in the single merge at the end, so nothing arrives before
+  the worker and the cleanup function exist.
+- **Logs**: each function has its own log group, kept 30 days (FR-037). The front door's
+  timeout is 3 seconds, the same as Slack's patience.
 - **Relocking**: last time, relocking `Pipfile.lock` moved three of the agent's runtime
   packages. Check the diff and restore any `[packages]` entry that moved.
 - **The agent's image** must not change. `.dockerignore` already limits its build context
