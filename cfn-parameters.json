@@ -7,7 +7,7 @@
     "ContainerOrg": $env.GITHUB_REPOSITORY_OWNER_PART_SLUG,
     "ContainerImage": $env.GITHUB_REPOSITORY_NAME_PART_SLUG,
     "ContainerTag": $env.GITHUB_SHA,
-    "ModelId": "us.openai.gpt-6-luna",
+    "ModelId": "us.amazon.nova-2-lite-v1:0",
     "ReasoningEffort": "default",
     "MaxPromptChars": 16000,
     "Hostname": "engineering-agents.sandbox.serverlessops.io",
