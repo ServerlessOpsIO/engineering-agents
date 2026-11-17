@@ -8,7 +8,7 @@ Nothing in this module logs. It handles message text.
 '''
 
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 from common.slack.errors import SlackUnavailable
 from common.slack.text import FIXED_SENTENCES, incomplete_part, mentions
@@ -44,13 +44,13 @@ class SinceMessage:
     incomplete: bool = False
 
 
-def _pages(client: Any, **arguments) -> List[Dict[str, Any]]:
-    '''Return every message conversations.replies gives for the arguments.'''
+def _pages(method: Any, **arguments) -> List[Dict[str, Any]]:
+    '''Return every message a conversations method gives for the arguments.'''
     messages: List[Dict[str, Any]] = []
     cursor = None
     try:
         while True:
-            page = client.conversations_replies(limit=PAGE_SIZE, cursor=cursor, **arguments)
+            page = method(limit=PAGE_SIZE, cursor=cursor, **arguments)
             messages.extend(page.get('messages') or [])
             cursor = (page.get('response_metadata') or {}).get('next_cursor')
             if not (page.get('has_more') and cursor):
@@ -79,7 +79,9 @@ def read_thread(
 
     Raises SlackUnavailable when Slack cannot be read.
     '''
-    messages = _pages(client, channel=channel, ts=thread_ts, latest=upto_ts, inclusive=True)
+    messages = _pages(
+        client.conversations_replies, channel=channel, ts=thread_ts, latest=upto_ts, inclusive=True
+    )
     limit = float(upto_ts)
     upto = sorted(
         (message for message in messages if float(message.get('ts', 0)) <= limit),
@@ -105,16 +107,24 @@ def read_thread(
 
 
 def since_message(
-    client: Any, channel: str, thread_ts: str, ts: str, bot_user_id: str
+    client: Any, channel: str, thread_ts: Optional[str], ts: str, bot_user_id: str
 ) -> SinceMessage:
-    '''Read a thread from the message sent at ts onward.
+    '''Read a conversation from the message sent at ts onward.
 
-    The queue hands the worker one message of a thread at a time, so anything
-    STRIDEr posted in the thread after a message is its response to it.
+    With a thread_ts the thread is read. With none, the conversation itself is
+    read, which is where the reply to a direct message outside a thread goes.
+
+    The queue hands the worker one message of a conversation at a time, so
+    anything STRIDEr posted there after a message is its response to it.
 
     Raises SlackUnavailable when Slack cannot be read.
     '''
-    messages = _pages(client, channel=channel, ts=thread_ts, oldest=ts, inclusive=True)
+    if thread_ts:
+        messages = _pages(
+            client.conversations_replies, channel=channel, ts=thread_ts, oldest=ts, inclusive=True
+        )
+    else:
+        messages = _pages(client.conversations_history, channel=channel, oldest=ts, inclusive=True)
     start = float(ts)
     result = SinceMessage()
 

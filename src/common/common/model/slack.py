@@ -7,6 +7,7 @@ logged; see docs/handbook/09-slack-messaging.md.
 import json
 import re
 from dataclasses import asdict, dataclass
+from typing import Optional
 
 SESSION_ID_MIN_CHARS = 33
 SESSION_ID_PATTERN = re.compile(r'^[A-Za-z0-9_-]+$')
@@ -18,6 +19,10 @@ EVENT_MESSAGE = 'message'
 # Where a message was written. An app_mention event does not say.
 CHANNEL_TYPE_IM = 'im'
 CHANNEL_TYPE_UNKNOWN = 'unknown'
+
+# The last part of the session for a direct message. Long enough that the
+# whole session ID is never shorter than AgentCore accepts.
+DIRECT_MESSAGE_SESSION = 'direct-message'
 
 # How the worker's handling of one message ends.
 OUTCOME_ANSWERED = 'answered'
@@ -67,7 +72,12 @@ class QueuedMessage:
         return cls(**json.loads(body))
 
     def message_group_id(self) -> str:
-        '''One group per thread, so a thread's messages are handled in order.'''
+        '''One group per conversation, so its messages are handled in order.
+
+        A conversation is a thread in a channel, or the whole of a direct message.
+        '''
+        if self.is_direct_message():
+            return self.channel
         return f'{self.channel}:{self.threadTs}'
 
     def deduplication_id(self) -> str:
@@ -77,12 +87,15 @@ class QueuedMessage:
     def session_id(self) -> str:
         '''The agent session for this message's thread.
 
-        It is worked out from the thread alone, so every message in a thread
-        gets the same session and different threads get different ones.
+        In a channel it is worked out from the thread alone, so every message
+        in a thread gets the same session and different threads get different
+        ones. A direct message is one continuous conversation, so everything in
+        it gets the same session, threads included.
         '''
-        session_id = 'slack-{}-{}-{}'.format(
-            self.teamId, self.channel, self.threadTs.replace('.', '-')
+        conversation = (
+            DIRECT_MESSAGE_SESSION if self.is_direct_message() else self.threadTs.replace('.', '-')
         )
+        session_id = f'slack-{self.teamId}-{self.channel}-{conversation}'
         if len(session_id) < SESSION_ID_MIN_CHARS:
             raise ValueError('The session ID is shorter than AgentCore accepts')
         if not SESSION_ID_PATTERN.match(session_id):
@@ -91,3 +104,14 @@ class QueuedMessage:
 
     def is_direct_message(self) -> bool:
         return self.channelType == CHANNEL_TYPE_IM
+
+    def reply_thread_ts(self) -> Optional[str]:
+        '''The thread a reply is posted in, or None to post it outside any thread.
+
+        In a channel a reply always goes in a thread: the message's own, or one
+        started under it. In a direct message a reply goes where the person
+        wrote: outside any thread, unless they wrote in one.
+        '''
+        if self.is_direct_message() and not self.isReply:
+            return None
+        return self.threadTs

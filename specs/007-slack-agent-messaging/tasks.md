@@ -267,6 +267,12 @@ describes.
   takes the two secrets as `NoEcho` parameters from `cfn-parameters.json`, keeps each in
   a Secrets Manager secret, and the functions read those. The Parameter Store names, the
   KMS statements and the manual step are gone. Spec FR-030 and FR-032 changed to match.
+- **Direct messages are no longer threaded** (after go-live, 2026-11-17). The owner saw
+  replies in a direct message arrive in threads and asked for them not to. A direct
+  message is now one continuous conversation with one session; the reply goes in the
+  direct message itself; the rule for old threads no longer applies there; and the
+  cleanup function reads the direct message with `conversations.history`. Spec FR-016,
+  FR-020 to FR-022, FR-050 and User Story 5 changed to match.
 - **Both workflows gained one step.** The plan said `main.yml` and `branch.yml` need no
   change. `sam build` now packages Python functions and needs Python 3.14 on the runner to
   do it, so the `build_infra` job of each installs it first. Not yet run in GitHub

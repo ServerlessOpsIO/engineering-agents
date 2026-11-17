@@ -204,6 +204,31 @@ def test_a_run_that_posted_but_could_not_remove_the_eyes_does_not_apologise_agai
     assert [step for step in slack.steps if step == 'post'] == ['post']
 
 
+### A direct message
+def test_a_direct_message_is_cleaned_up_outside_any_thread(mock_fn, mock_event, mock_context, slack, since, data):
+    data.update({'channel': 'D0123ABCDEF', 'channelType': 'im'})
+    mock_event['Records'][0]['body'] = json.dumps(data)
+
+    mock_fn.handler(mock_event, mock_context)
+
+    # The direct message itself is read, not a thread, and the apology goes there.
+    assert since.call_args.args[1:] == ('D0123ABCDEF', None, data['ts'], BOT)
+    assert slack.done == [
+        ('post', 'D0123ABCDEF', None, text.APOLOGY),
+        ('eyes off', 'D0123ABCDEF', data['ts']),
+    ]
+
+
+def test_a_thread_in_a_direct_message_is_cleaned_up_in_that_thread(mock_fn, mock_event, mock_context, slack, since, data):
+    data.update({'channel': 'D0123ABCDEF', 'channelType': 'im', 'threadTs': '1731780000.000001', 'isReply': True})
+    mock_event['Records'][0]['body'] = json.dumps(data)
+
+    mock_fn.handler(mock_event, mock_context)
+
+    assert since.call_args.args[1:] == ('D0123ABCDEF', '1731780000.000001', data['ts'], BOT)
+    assert slack.done[0] == ('post', 'D0123ABCDEF', '1731780000.000001', text.APOLOGY)
+
+
 ### When cleaning up fails
 def test_an_apology_that_cannot_be_posted_leaves_the_eyes_and_is_tried_again(
     mock_fn, mock_event, mock_context, slack, caplog

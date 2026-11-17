@@ -79,3 +79,47 @@ def test_a_session_with_an_unsafe_character_is_refused():
 def test_a_direct_message_is_recognised_by_its_channel_type():
     assert message(channelType='im').is_direct_message()
     assert not message(channelType='unknown').is_direct_message()
+
+
+### Direct messages
+def dm(**changes) -> QueuedMessage:
+    fields = {'channel': 'D0123ABCDEF', 'channelType': 'im', 'ts': '1731790042.222222',
+              'threadTs': '1731790042.222222', 'isReply': False}
+    fields.update(changes)
+    return message(**fields)
+
+
+def test_a_direct_message_is_one_session_whatever_the_message_or_thread():
+    first = dm()
+    later = dm(ts='1731799999.000001', threadTs='1731799999.000001')
+    in_a_thread = dm(ts='1731790050.333333', threadTs='1731790042.222222', isReply=True)
+    assert first.session_id() == 'slack-T0123ABCD-D0123ABCDEF-direct-message'
+    assert later.session_id() == first.session_id()
+    assert in_a_thread.session_id() == first.session_id()
+    assert len(first.session_id()) >= 33
+
+
+def test_two_direct_message_conversations_are_two_sessions():
+    assert dm().session_id() != dm(channel='D0999ZZZZZZ').session_id()
+
+
+def test_a_direct_message_is_one_group_so_it_is_answered_in_order():
+    in_a_thread = dm(ts='1731790050.333333', threadTs='1731790042.222222', isReply=True)
+    assert dm().message_group_id() == 'D0123ABCDEF'
+    assert in_a_thread.message_group_id() == 'D0123ABCDEF'
+
+
+def test_a_reply_to_a_direct_message_goes_outside_any_thread():
+    assert dm().reply_thread_ts() is None
+
+
+def test_a_reply_to_a_thread_in_a_direct_message_goes_in_that_thread():
+    in_a_thread = dm(ts='1731790050.333333', threadTs='1731790042.222222', isReply=True)
+    assert in_a_thread.reply_thread_ts() == '1731790042.222222'
+
+
+def test_a_reply_in_a_channel_always_goes_in_a_thread():
+    top_level = message(ts='1731790000.111111', isReply=False)
+    assert top_level.reply_thread_ts() == '1731790000.111111'
+    assert message().reply_thread_ts() == '1731790000.111111'
+    assert message(channelType='unknown').reply_thread_ts() == '1731790000.111111'

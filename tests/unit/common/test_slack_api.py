@@ -160,6 +160,11 @@ def test_a_post_goes_in_the_thread_as_markdown(slack):
     ]
 
 
+def test_a_post_with_no_thread_goes_in_the_conversation_itself(slack):
+    assert api.post('D1', None, 'a reply') is True
+    assert slack.named('chat_postMessage') == [{'channel': 'D1', 'markdown_text': 'a reply'}]
+
+
 def test_a_post_that_fails_is_tried_three_times(slack):
     slack.fail['chat_postMessage'] = [slack_error('fatal_error'), slack_error('fatal_error')]
     assert api.post('C1', '1.1', 'reply') is True

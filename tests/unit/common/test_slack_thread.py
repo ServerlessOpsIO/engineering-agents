@@ -26,6 +26,10 @@ class FakeClient:
         self.error = error
         self.calls = []
 
+    def conversations_history(self, **arguments):
+        self.history_calls = getattr(self, 'history_calls', 0) + 1
+        return self.conversations_replies(**arguments)
+
     def conversations_replies(self, **arguments):
         self.calls.append(arguments)
         if self.error:
@@ -239,3 +243,26 @@ def test_a_message_that_has_been_deleted_is_not_found():
     since = since_message(client, CHANNEL, THREAD, MESSAGE_TS, BOT)
 
     assert (since.found, since.has_eyes, since.posted) == (False, False, False)
+
+
+### Reading a direct message from a message onward
+def test_with_no_thread_the_conversation_itself_is_read():
+    client = FakeClient([said('1731790015.000250', BOT, 'An answer.', thread_ts=None),
+                         said(MESSAGE_TS, 'U1', 'a question', reactions=eyes(BOT), thread_ts=None)])
+
+    since = since_message(client, 'D0123ABCDEF', None, MESSAGE_TS, BOT)
+
+    assert client.history_calls == 1
+    [call] = client.calls
+    assert call['channel'] == 'D0123ABCDEF'
+    assert (call['oldest'], call['inclusive']) == (MESSAGE_TS, True)
+    assert 'ts' not in call
+    assert (since.found, since.has_eyes, since.posted, since.incomplete) == (True, True, True, False)
+
+
+def test_with_no_thread_and_nothing_posted_an_apology_is_still_owed():
+    client = FakeClient([said(MESSAGE_TS, 'U1', 'a question', reactions=eyes(BOT), thread_ts=None)])
+
+    since = since_message(client, 'D0123ABCDEF', None, MESSAGE_TS, BOT)
+
+    assert (since.has_eyes, since.posted) == (True, False)
