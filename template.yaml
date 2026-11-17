@@ -94,15 +94,18 @@ Parameters:
     Type: AWS::SSM::Parameter::Value<String>
     Description: "Route 53 hosted zone ID for the hostname"
 
-  SlackSigningSecretParameter:
+  # The two Slack secrets come from GitHub secrets at deployment. NoEcho keeps
+  # them out of CloudFormation's console and API output. They are used once,
+  # to fill the two Secrets Manager secrets below; no function is given them.
+  SlackSigningSecret:
     Type: String
-    Description: "Name of the Parameter Store SecureString that holds the Slack signing secret. A name, not the secret."
-    Default: /engineering-agents/slack/signing-secret
+    NoEcho: true
+    Description: "The Slack app's signing secret. Only used by the stack deployed from main."
 
-  SlackBotTokenParameter:
+  SlackBotToken:
     Type: String
-    Description: "Name of the Parameter Store SecureString that holds the Slack bot token. A name, not the token."
-    Default: /engineering-agents/slack/bot-token
+    NoEcho: true
+    Description: "The Slack app's bot token. Only used by the stack deployed from main."
 
 
 Conditions:
@@ -275,6 +278,23 @@ Resources:
   # See docs/handbook/09-slack-messaging.md. Message text waits in these queues,
   # so both are encrypted and neither keeps a message for more than an hour.
 
+  # The Slack secrets, each readable only by the functions that need it. Their
+  # values are whatever the last deployment was given: to replace one, change
+  # the GitHub secret and deploy again.
+  SlackSigningSecretStore:
+    Type: AWS::SecretsManager::Secret
+    Condition: ConnectSlack
+    Properties:
+      Description: "Slack signing secret for STRIDEr. Set by deployment from the GitHub secret SLACK_SIGNING_SECRET."
+      SecretString: !Ref SlackSigningSecret
+
+  SlackBotTokenStore:
+    Type: AWS::SecretsManager::Secret
+    Condition: ConnectSlack
+    Properties:
+      Description: "Slack bot token for STRIDEr. Set by deployment from the GitHub secret SLACK_BOT_TOKEN."
+      SecretString: !Ref SlackBotToken
+
   # Messages the worker did not finish. The cleanup function is triggered by it.
   SlackHeldBackQueue:
     Type: AWS::SQS::Queue
@@ -316,7 +336,7 @@ Resources:
         LogGroup: !Ref ReceiveSlackEventFunctionLogGroup
       Environment:
         Variables:
-          SLACK_SIGNING_SECRET_PARAMETER: !Ref SlackSigningSecretParameter
+          SLACK_SIGNING_SECRET_ARN: !Ref SlackSigningSecretStore
           SLACK_MESSAGE_QUEUE_URL: !Ref SlackMessageQueue
           MEMORY_EXPIRY_DAYS: !Ref MemoryEventExpiryDays
       Policies:
@@ -324,18 +344,8 @@ Resources:
           Statement:
             - Sid: SigningSecret
               Effect: Allow
-              Action: ssm:GetParameter
-              Resource: !Sub 'arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter${SlackSigningSecretParameter}'
-            # Wildcard resource: the parameter is encrypted with the account's
-            # key for Parameter Store, whose ID is not known to the template.
-            # The condition limits the key's use to Parameter Store.
-            - Sid: DecryptThroughParameterStore
-              Effect: Allow
-              Action: kms:Decrypt
-              Resource: !Sub 'arn:${AWS::Partition}:kms:${AWS::Region}:${AWS::AccountId}:key/*'
-              Condition:
-                StringEquals:
-                  kms:ViaService: !Sub 'ssm.${AWS::Region}.amazonaws.com'
+              Action: secretsmanager:GetSecretValue
+              Resource: !Ref SlackSigningSecretStore
             - Sid: QueueMessages
               Effect: Allow
               Action: sqs:SendMessage
@@ -373,7 +383,7 @@ Resources:
         LogGroup: !Ref AnswerSlackMessageFunctionLogGroup
       Environment:
         Variables:
-          SLACK_BOT_TOKEN_PARAMETER: !Ref SlackBotTokenParameter
+          SLACK_BOT_TOKEN_SECRET_ARN: !Ref SlackBotTokenStore
           AGENT_RUNTIME_ARN: !GetAtt AgentRuntime.AgentRuntimeArn
           MAX_PROMPT_CHARS: !Ref MaxPromptChars
           MEMORY_EXPIRY_DAYS: !Ref MemoryEventExpiryDays
@@ -392,16 +402,8 @@ Resources:
           Statement:
             - Sid: BotToken
               Effect: Allow
-              Action: ssm:GetParameter
-              Resource: !Sub 'arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter${SlackBotTokenParameter}'
-            # Wildcard resource, for the same reason as the front door's.
-            - Sid: DecryptThroughParameterStore
-              Effect: Allow
-              Action: kms:Decrypt
-              Resource: !Sub 'arn:${AWS::Partition}:kms:${AWS::Region}:${AWS::AccountId}:key/*'
-              Condition:
-                StringEquals:
-                  kms:ViaService: !Sub 'ssm.${AWS::Region}.amazonaws.com'
+              Action: secretsmanager:GetSecretValue
+              Resource: !Ref SlackBotTokenStore
             # The runtime and its endpoints: InvokeAgentRuntime is checked
             # against both.
             - Sid: AskTheAgent
@@ -434,7 +436,7 @@ Resources:
         LogGroup: !Ref CleanUpSlackMessageFunctionLogGroup
       Environment:
         Variables:
-          SLACK_BOT_TOKEN_PARAMETER: !Ref SlackBotTokenParameter
+          SLACK_BOT_TOKEN_SECRET_ARN: !Ref SlackBotTokenStore
       Events:
         SlackHeldBackQueue:
           Type: SQS
@@ -448,16 +450,8 @@ Resources:
           Statement:
             - Sid: BotToken
               Effect: Allow
-              Action: ssm:GetParameter
-              Resource: !Sub 'arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter${SlackBotTokenParameter}'
-            # Wildcard resource, for the same reason as the front door's.
-            - Sid: DecryptThroughParameterStore
-              Effect: Allow
-              Action: kms:Decrypt
-              Resource: !Sub 'arn:${AWS::Partition}:kms:${AWS::Region}:${AWS::AccountId}:key/*'
-              Condition:
-                StringEquals:
-                  kms:ViaService: !Sub 'ssm.${AWS::Region}.amazonaws.com'
+              Action: secretsmanager:GetSecretValue
+              Resource: !Ref SlackBotTokenStore
 
   CleanUpSlackMessageFunctionLogGroup:
     Type: AWS::Logs::LogGroup

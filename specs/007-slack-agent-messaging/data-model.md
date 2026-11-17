@@ -124,13 +124,14 @@ A reply in more than one part has a last line on each part: `(part 1 of 3)`.
 
 ## Secrets
 
-Parameter Store SecureString parameters, created by the owner. Read at run time, kept for
+Kept by hand only as GitHub secrets. The deployment passes each to the stack as a hidden
+parameter, and the stack keeps it in a Secrets Manager secret. Read at run time, kept for
 5 minutes.
 
-| Name | Read by | Used for |
-|------|---------|----------|
-| `/engineering-agents/slack/signing-secret` | Front door | Checking signatures (FR-002). |
-| `/engineering-agents/slack/bot-token` | Worker, cleanup function | Every call to Slack. |
+| Secret in the stack | From the GitHub secret | Read by | Used for |
+|---------------------|------------------------|---------|----------|
+| `SlackSigningSecretStore` | `SLACK_SIGNING_SECRET` | Front door | Checking signatures (FR-002). |
+| `SlackBotTokenStore` | `SLACK_BOT_TOKEN` | Worker, cleanup function | Every call to Slack. |
 
 ## Log records
 

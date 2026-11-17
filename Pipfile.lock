@@ -1,7 +1,7 @@
 {
     "_meta": {
         "hash": {
-            "sha256": "d9a46a13189be8c549da86f29887ec94fc431c7d8304c11e8cddb43190149124"
+            "sha256": "c6995a03e133290f19d2a280f3a0b91a4d3aac005e940fc2d3ea54b8b9919b5f"
         },
         "pipfile-spec": 6,
         "requires": {
@@ -2564,8 +2564,8 @@
         },
         "moto": {
             "extras": [
-                "sqs",
-                "ssm"
+                "secretsmanager",
+                "sqs"
             ],
             "hashes": [
                 "sha256:391857257d5dac144334013c2c10e599def5f0562f553e979160140bd7bd9cf6",

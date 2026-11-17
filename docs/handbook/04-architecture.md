@@ -14,6 +14,7 @@ The stack deployed from `main` also has the Slack receiving service. A branch st
 | --- | --- | --- |
 | `RestApi` | `AWS::Serverless::Api` | The public address Slack sends events to, defined in `openapi.yaml`. Throttled; access log only. |
 | `SiteCertificate` | `AWS::CertificateManager::Certificate` | Certificate for the hostname, validated through the hosted zone. |
+| `SlackSigningSecretStore`, `SlackBotTokenStore` | `AWS::SecretsManager::Secret` | The two Slack secrets, filled at deployment from GitHub secrets. Each is readable only by the functions that use it. |
 | `ReceiveSlackEventFunction` | `AWS::Serverless::Function` | Checks Slack's signature, answers Slack, queues the message. |
 | `SlackMessageQueue` | `AWS::SQS::Queue` (FIFO) | Messages waiting to be answered, one group per Slack thread. |
 | `AnswerSlackMessageFunction` | `AWS::Serverless::Function` | Asks the agent and posts the reply in the thread. |

@@ -316,17 +316,31 @@ the end lists what must be tried, and what happens if it turns out wrong.
 
 ## Decision 10: Secrets
 
-- **Decision**: Two SecureString parameters in Parameter Store, created by the owner:
-  `/engineering-agents/slack/signing-secret` and `/engineering-agents/slack/bot-token`.
-  The template takes their names as ordinary parameters with those defaults and never
-  their values (A24). Each function reads its own secret when it runs, through Powertools,
-  and keeps it for 5 minutes (A25). The front door may read only the signing secret; the
-  worker only the bot token.
-- **Rationale**: The owner chose "by hand". Parameter Store is free where Secrets Manager
-  is $0.40 a secret a month, and the convention template already uses it. Five minutes
-  means a replaced secret takes effect with no deployment (FR-032).
-- **Alternatives considered**: Secrets Manager; passing the values from GitHub secrets as
-  hidden template parameters, which the owner declined.
+- **Decision** (revised 2026-11-17, at the owner's direction): the two secrets stay where
+  feature 006 put them, as the GitHub secrets `SLACK_SIGNING_SECRET` and `SLACK_BOT_TOKEN`.
+  `cfn-parameters.json` passes them to the template as `NoEcho` parameters, the way
+  `AWS_ECR_REPO` is already passed. The template puts each in its own Secrets Manager
+  secret. Each function reads its own secret when it runs, through Powertools, and keeps
+  it for 5 minutes. The front door may read only the signing secret; the worker and the
+  cleanup function only the bot token.
+- **What the secrets are for**: both are used only by this repository's own code, at run
+  time. The signing secret computes the check on every request; the bot token
+  authenticates every call to Slack. Nothing in AWS consumes either directly and neither
+  is rotated automatically, so nothing forced the choice of store.
+- **Rationale**: the owner wants every secret kept in one place, GitHub. Secrets Manager
+  was chosen over putting the values straight into the functions' environment variables
+  because there they could be read by anyone able to view a function's configuration,
+  and the bot token can post as STRIDEr and read channels. Two secrets cost $0.80 a month.
+- **Consequences**: no step by hand in AWS. A replaced secret takes effect at the next
+  deployment, within 5 minutes of it. A value changed directly in Secrets Manager is put
+  back by the next deployment.
+- **Alternatives considered**:
+  - *Parameter Store, created by hand.* This plan's first design. It kept each secret in
+    two places and needed a manual step before the first deployment.
+  - *Environment variables from the same parameters.* Free and with no lookup at run
+    time, but visible in each function's configuration.
+  - *Parameter Store from the same parameters.* CloudFormation cannot create a
+    SecureString parameter.
 
 ## Decision 11: The public address
 
@@ -381,15 +395,14 @@ the end lists what must be tried, and what happens if it turns out wrong.
 
 The order, which the handbook will give:
 
-1. The owner creates the two parameters (Decision 10).
-2. The change is merged. `main.yml` deploys the receiving service. `slack-app.yml` sends
+1. The change is merged. `main.yml` deploys the receiving service. `slack-app.yml` sends
    the new permissions, the events and the address to Slack, and **fails saying the app
    must be installed again**, as feature 006 defines (R7).
-3. The owner verifies the address in the app's settings (S25).
-4. The owner installs the app again, compares the bot token (S24), and updates the
-   parameter if it changed.
-5. The owner runs the Slack app workflow by hand with `apply`. It passes.
-6. The owner adds STRIDEr to a channel and mentions it.
+2. The owner verifies the address in the app's settings (S25).
+3. The owner installs the app again, compares the bot token (S24), and, if it
+   changed, stores the new one as the GitHub secret and runs **Main** again.
+4. The owner runs the Slack app workflow by hand with `apply`. It passes.
+5. The owner adds STRIDEr to a channel and mentions it.
 
 ## Decision 15: A cleanup function on the held-back queue
 

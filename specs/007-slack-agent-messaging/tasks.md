@@ -228,7 +228,7 @@ produces the apology from the cleanup function. Once deployed, `quickstart.md` s
 **Purpose**: The manual steps, in order, and the checks that can only be made against
 real Slack and real AWS. Results go in `specs/007-slack-agent-messaging/quickstart.md`.
 
-- [ ] T061 **(owner)** Create the two SecureString parameters in the deployment account with the commands in `docs/handbook/09-slack-messaging.md`: `/engineering-agents/slack/signing-secret` and `/engineering-agents/slack/bot-token`
+- [X] T061 **(owner)** ~~Create the two SecureString parameters in the deployment account~~ No longer needed: on 2026-11-17 the owner chose to keep the secrets in GitHub only, and the deployment passes `SLACK_SIGNING_SECRET` and `SLACK_BOT_TOKEN` to the stack (see "Changes during implementation")
 - [ ] T062 **(owner)** Merge the branch. Confirm **Main** passes, the certificate validated (research O1, O7) and the stack has the output `SlackEventsUrl`. Expect **Slack app** to fail with "install again"
 - [ ] T063 **(owner)** Verify the event address in the Slack app's settings (research O6), install the app again, compare the bot token with the stored one and store it again if it changed (O9), then run **Slack app** by hand with `apply` and confirm it passes. Record the time taken and the result under "B" in `specs/007-slack-agent-messaging/quickstart.md` (SC-007, SC-015)
 - [ ] T064 **(owner)** Run scenarios C to I of `specs/007-slack-agent-messaging/quickstart.md` and record each result there, including what was seen for the open items: `markdown_text` accepted (O3), a mention in a thread arriving as two events with one reply (O4), the thread read stopping at the message (O5), events before verification (O8), reaction notifications (O9), the held-back queue's clock (O10), a mention in a group direct message (O11, issue #13), and reactions in a thread read (O12, checked in scenario C). Scenarios G.4 and G.5 are covered by unit tests and are not run against the live stack
@@ -262,6 +262,11 @@ describes.
   `/aws/lambda/<stack name>-<FunctionName>`, attached with `LoggingConfig`. A group named
   after the function could be created by Lambda before CloudFormation creates it.
 - **Memory is 512 MB for all three functions**, set once in `Globals` (T010).
+- **The secrets come from GitHub, not Parameter Store** (T010, T018, T020, T028, T031,
+  T055, T061). Decided by the owner on 2026-11-17, after the first push. The template
+  takes the two secrets as `NoEcho` parameters from `cfn-parameters.json`, keeps each in
+  a Secrets Manager secret, and the functions read those. The Parameter Store names, the
+  KMS statements and the manual step are gone. Spec FR-030 and FR-032 changed to match.
 - **Both workflows gained one step.** The plan said `main.yml` and `branch.yml` need no
   change. `sam build` now packages Python functions and needs Python 3.14 on the runner to
   do it, so the `build_infra` job of each installs it first. Not yet run in GitHub

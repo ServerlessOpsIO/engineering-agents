@@ -56,6 +56,7 @@ lead a STRIDE exercise is a later feature.
 - Q: What should happen when the worker stops part-way through a message, so the person has the eyes reaction and nothing else? → A: A separate cleanup step, triggered by the held-back store, posts the apology and removes the reaction. The owner proposed this on 2026-11-16. Because the cleanup step empties the held-back store, the store is no longer somewhere to look at failed messages; the log is.
 - Q: What should happen in a thread that is older than the agent's memory? → A: Nothing STRIDEr does should last past the memory period (7 days by default). In an older thread, a person who addresses STRIDEr is told it no longer remembers the conversation and is asked to start a new one. From the owner's suggestion on 2026-11-16; the exact rule is the author's.
 - Q: The cross-check of the spec, plan and tasks found two gaps and ten smaller mismatches. How were they settled? → A: By the author's proposals, accepted by the owner on 2026-11-16: an empty reply with no mention gets nothing (FR-029); FR-042 lists all five departures from the template; SC-013 allows 60 minutes when the cleanup step is failing; the programs' logs are kept 30 days (FR-037); a fourth case in FR-053 for when STRIDEr's own identity cannot be found; SC-016 is accepted by design and not tested on the live stack; and the front door gives up after 3 seconds, as Slack does.
+- Q: Where are the signing secret and the bot token kept? → A: With the repository hosting service only, where feature 006 stored them. The deployment passes them to the stack, which keeps each in the cloud platform's secret store for the programs to read. Decided by the owner on 2026-11-17, replacing the earlier choice to place them in the cloud account by hand. To replace a secret, the owner stores the new value and deploys again (FR-030, FR-032).
 - Q: The review of the requirements checklist left 31 items open. How were they settled? → A: On 2026-11-16 the owner accepted the author's proposals: 22 small additions to this specification, each stating something that was only in the plan or was missing; a success criterion for "never two replies" (SC-020); the wider reach of the permission to look people up; and raising the agent's prompt length from 4,000 to 16,000 characters. Six items were set aside as not worth changing: the wording of the fixed sentences stays in the plan, the try counts stay as chosen, and three rules are left to unit tests without a success criterion of their own.
 - Q: Is the eyes reaction used when STRIDEr replies with the start-again sentence in an old thread? → A: Yes. Added, then removed once the sentence is posted.
 - Q: Should the spec say that later messages in a thread wait while an unfinished message is moved to the held-back store? → A: Yes. Added to FR-022 and the edge cases.
@@ -132,8 +133,7 @@ called.
 
 ### User Story 3 - The owner connects the Slack app to the agent by following the documentation (Priority: P1)
 
-The owner places the signing secret and the bot token in the cloud account by hand, merges
-the change, and then does two things in Slack: confirms the event delivery address and
+The owner merges the change, and then does two things in Slack: confirms the event delivery address and
 installs the app again so it gains the new permission. The documentation gives the steps in
 order. After that, the address does not change, even if the receiving service is rebuilt
 from nothing.
@@ -149,8 +149,8 @@ holds the reaction permission, and User Story 1 passes.
 
 1. **Given** the receiving service is deployed and the event delivery address is set in the
    Slack app's settings, **When** Slack checks the address, **Then** the check succeeds.
-2. **Given** the secrets have been placed by hand, **When** the receiving service is
-   deployed, **Then** it uses them, and their values are not in the repository, the
+2. **Given** the two secrets are stored with the repository hosting service, **When** the
+   receiving service is deployed, **Then** it uses them, and their values are not in the repository, the
    deployment's description of itself, any log or any pipeline output.
 3. **Given** the receiving service is removed and deployed again, **When** it is ready,
    **Then** it answers at the same address and nothing has to be changed in Slack.
@@ -504,12 +504,16 @@ reply appears.
 
 **Secrets and privacy**
 
-- **FR-030**: The signing secret and the bot token MUST be placed in the cloud account by
-  the owner, by hand. The receiving service MUST read them from there when it runs.
+- **FR-030**: The signing secret and the bot token MUST be kept, by hand, in one place only:
+  the repository hosting service's secrets, where feature 006 put them. The deployment
+  MUST pass them to the receiving service, which MUST keep each in the cloud platform's
+  secret store and read it from there when it runs. The owner places nothing in the cloud
+  account by hand.
 - **FR-031**: No secret value may appear in the repository, in the deployment's description
   of itself, in a log, in pipeline output, in an issue or in a pull request.
 - **FR-032**: The owner MUST be able to replace either secret without changing the
-  repository or deploying. A replaced secret MUST be in use within 5 minutes.
+  repository: by storing the new value with the repository hosting service and deploying
+  again. A replaced secret MUST be in use within 5 minutes of that deployment.
 - **FR-033**: The text of a message, of a thread's earlier messages and of a reply MUST NOT
   be written to any log, including the logs of the public address and anything logged
   when an error is reported. This matches the agent's existing rule.
@@ -658,10 +662,14 @@ reply appears.
   agent directly with a sign-in token and set it aside. Believed and to be confirmed in
   planning: the agent's hosting service accepts either the cloud account's identity
   checking or a sign-in token, not both, and Slack can present neither.
-- **Secrets are placed by hand.** The owner chose this over having the pipeline copy them
-  from the repository hosting service. The signing secret and bot token therefore exist in
-  two places, there and in the cloud account. Where in the cloud account, and under what
-  names, is for planning.
+- **Secrets are kept in one place.** The owner first chose to place the two secrets in the
+  cloud account by hand, and changed this on 2026-11-17 before anything was deployed:
+  all secrets stay with the repository hosting service, and the deployment passes these
+  two to the stack as hidden values. The stack keeps each in the cloud platform's secret
+  store, readable only by the programs that need it, and not in any program's own
+  configuration. The secret store was chosen over putting the values straight into the
+  programs' settings because the bot token can post as STRIDEr and read channels, and is
+  worth keeping where only two programs can read it. It costs under a dollar a month.
 - **The hosted zone exists.** The owner created a zone for `sandbox.serverlessops.io` in
   the hosting account. Assumed and to be confirmed in planning: the deployment can add a
   record and a certificate for `engineering-agents.sandbox.serverlessops.io` in it.

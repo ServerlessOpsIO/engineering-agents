@@ -1,6 +1,6 @@
 '''The calls the Slack receiving service makes to Slack.
 
-Every call uses the bot token, which the owner keeps in Parameter Store. A
+Every call uses the bot token, which the deployment puts in Secrets Manager. A
 call that fails or is rate limited is tried three times in all before the
 caller is told Slack is unavailable.
 
@@ -61,12 +61,12 @@ def _new_client(token: str) -> WebClient:
 def client() -> WebClient:
     '''Return a client for the current bot token.
 
-    The token is read again every five minutes, so a token the owner replaces
-    is picked up without a deployment.
+    The token is read again every five minutes, so a new token is picked up
+    within five minutes of the deployment that brings it.
     '''
     global _client, _client_token
-    token = parameters.get_parameter(
-        os.environ['SLACK_BOT_TOKEN_PARAMETER'], decrypt=True, max_age=TOKEN_MAX_AGE_SECONDS
+    token = parameters.get_secret(
+        os.environ['SLACK_BOT_TOKEN_SECRET_ARN'], max_age=TOKEN_MAX_AGE_SECONDS
     )
     if _client is None or token != _client_token:
         _client = _new_client(token)

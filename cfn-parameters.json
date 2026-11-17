@@ -11,5 +11,7 @@
     "ReasoningEffort": "default",
     "MaxPromptChars": 16000,
     "Hostname": "engineering-agents.sandbox.serverlessops.io",
-    "DnsZoneId": "/org/dns/ZoneId"
+    "DnsZoneId": "/org/dns/ZoneId",
+    "SlackSigningSecret": $secrets.SLACK_SIGNING_SECRET,
+    "SlackBotToken": $secrets.SLACK_BOT_TOKEN
 }

@@ -20,8 +20,9 @@ messages the first time. If the worker dies part-way, the message moves to a dea
 queue, where a third function, the cleanup function, posts the apology and removes the
 reaction. There is no database.
 
-The agent is not changed and keeps IAM authentication. The two Slack secrets are placed in
-Parameter Store by the owner and read when the functions run. The receiving service exists
+The agent is not changed and keeps IAM authentication. The two Slack secrets stay in GitHub; the
+deployment passes them to the stack, which keeps each in Secrets Manager for the functions
+to read. The receiving service exists
 only in the `main` stack.
 
 ## Technical Context
@@ -34,7 +35,7 @@ function. A packaged `boto3` in the worker; the front door uses the runtime's `b
 its one call to the queue. The signature check uses the standard library.
 
 **Storage**: Two SQS FIFO queues (work, held back), each keeping a message for 60
-minutes. Two Parameter Store SecureString parameters, created by hand. No database. See
+minutes. Two Secrets Manager secrets, filled by the deployment from GitHub secrets. No database. See
 `data-model.md`.
 
 **Testing**: `pytest` through `pipenv run test-unit`, with `moto` for AWS and fakes for
@@ -125,8 +126,9 @@ These follow from the spec but were made by the author during planning. Each is 
 13. **The log is the record of a failure** (Decision 4). The dead-letter queue is emptied
    by the cleanup function and is not for looking at. **FR-026, FR-027, FR-046 and FR-049 were reworded** for items 1,
    2 and 7.
-14. **Parameter Store, not Secrets Manager** (Decision 10). Free, and already the
-    convention.
+14. **The secrets come from GitHub and are kept in Secrets Manager** (Decision 10), at the
+    owner's direction on 2026-11-17. Nothing is placed in AWS by hand. Replacing a secret
+    means changing the GitHub secret and deploying again.
 15. **`slack_sdk` in the worker** (Decision 13), where feature 006 used none.
 16. **The agent's prompt limit is raised from 4,000 to 16,000 characters** (Decision 8),
     chosen by the owner, so that thread context is not cut short in most threads. It is a

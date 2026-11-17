@@ -30,22 +30,16 @@ Expected: all tests pass, including the agent's and the Slack app's existing tes
 Follow `docs/handbook/09-slack-messaging.md` and nothing else. Time it. The steps, for
 reference:
 
-1. Create the two parameters. Each command prompts for the value:
-
-   ```bash
-   read -rs VALUE && aws ssm put-parameter --type SecureString \
-     --name /engineering-agents/slack/signing-secret --value "$VALUE"; unset VALUE
-   read -rs VALUE && aws ssm put-parameter --type SecureString \
-     --name /engineering-agents/slack/bot-token --value "$VALUE"; unset VALUE
-   ```
+1. Confirm the GitHub secrets `SLACK_SIGNING_SECRET` and `SLACK_BOT_TOKEN` exist; feature
+   006's setup stored both. Nothing is created by hand in AWS.
 
 2. Merge the change. Expected: **Main** passes and the stack has the output
    `SlackEventsUrl`. **Slack app** fails with "install again" (expected; `research.md`,
    Decision 14).
 3. In the app's settings in Slack, verify the event address. Expected: verified on the
    first try (SC-007). This also proves the signature check works on a real request.
-4. Install the app again. Compare the bot token with the stored one; store it again if it
-   changed.
+4. Install the app again. Compare the bot token with the stored one. If it changed,
+   store it again as the GitHub secret and run **Main** again.
 5. Run **Slack app** by hand with `apply`. Expected: passes.
 6. Add STRIDEr to a test channel.
 

@@ -144,22 +144,5 @@ Added to `template.yaml` and, where they have no default, to `cfn-parameters.jso
 |-----------|-------|-------|
 | `Hostname` | `engineering-agents.sandbox.serverlessops.io` | |
 | `DnsZoneId` | `/org/dns/ZoneId` | Type `AWS::SSM::Parameter::Value<String>`. Confirmed by the owner on 2026-11-16. |
-| `SlackSigningSecretParameter` | default `/engineering-agents/slack/signing-secret` | A name, not a value. |
-| `SlackBotTokenParameter` | default `/engineering-agents/slack/bot-token` | A name, not a value. |
-
-The worker and the front door are also given the existing `MaxPromptChars` and
-`MemoryEventExpiryDays` values as settings.
-
-New outputs: `SlackEventsUrl`, `SlackMessageQueueUrl`, `SlackHeldBackQueueUrl`.
-
-No table is created.
-
-Every resource of the receiving service exists only when `CodeBranch` is `main`.
-
-## 8. The Slack app definition
-
-- `slack/manifest.yaml`: two bot scopes added, each with its reason comment:
-  `reactions:write` and `users:read`.
-- `slack/settings.json`: `event_request_url` set to the address in section 1.
-
-Feature 006's pipeline applies both. Its test that lists the planned scopes is updated.
+| `SlackSigningSecret` | `$secrets.SLACK_SIGNING_SECRET` | `NoEcho`. Fills the Secrets Manager secret `SlackSigningSecretStore`. |
+| `SlackBotToken` | `$secrets.SLACK_BOT_TOKEN` | `NoEcho`. Fills the Secrets Manager secret `SlackBotTokenStore`. |

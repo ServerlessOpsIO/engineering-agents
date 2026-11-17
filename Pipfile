@@ -21,7 +21,7 @@ pyyaml = "==6.0.3"
 jsonschema = "==4.26.0"
 aws-lambda-powertools = "==3.40.0"
 slack-sdk = "==3.47.0"
-moto = {extras = ["sqs", "ssm"], version = "==5.2.5"}
+moto = {extras = ["secretsmanager", "sqs"], version = "==5.2.5"}
 pytest-mock = "==3.17.0"
 common = {editable = true, path = "src/common"}
 

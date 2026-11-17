@@ -50,7 +50,7 @@ feature.
                │ 2. invoke                                    │
                ▼                                              │
   ┌──────────────────────────┐      ┌──────────────────┐      │
-  │ Lambda                   │─────▶│ Parameter Store  │      │
+  │ Lambda                   │─────▶│ Secrets Manager  │      │
   │ ReceiveSlackEvent        │ read │ signing-secret   │      │
   │ check signature, apply   │      │ bot-token        │      │
   │ rules, answer in < 3 s   │      └────────▲─────────┘      │
@@ -139,55 +139,59 @@ A reply over 11,000 characters is posted in parts, each ending `(part 1 of 3)`.
 
 ## First-time setup
 
-Do these in order. Steps 1, 3, 4 and 5 are done by hand.
+Do these in order. Steps 2, 3 and 4 are done by hand.
 
-1. **Put the two secrets in Parameter Store**, in the deployment account and region. Each
-   command prompts for the value, which keeps it out of your shell history. The signing
-   secret is on the app's **Basic Information** page in Slack; the bot token is on **OAuth &
-   Permissions**. Both are also the GitHub secrets `SLACK_SIGNING_SECRET` and
-   `SLACK_BOT_TOKEN`, but GitHub will not show you those.
+The two Slack secrets need no step of their own. They are the GitHub secrets
+`SLACK_SIGNING_SECRET` and `SLACK_BOT_TOKEN`, which the Slack app's setup already stored.
+The deployment passes them to the stack, which keeps each in Secrets Manager.
 
-   ```bash
-   read -rs VALUE && aws ssm put-parameter --type SecureString \
-     --name /engineering-agents/slack/signing-secret --value "$VALUE"; unset VALUE
-   read -rs VALUE && aws ssm put-parameter --type SecureString \
-     --name /engineering-agents/slack/bot-token --value "$VALUE"; unset VALUE
-   ```
-
-2. **Merge to `main`.** The **Main** workflow deploys the receiving service; check the
+1. **Merge to `main`.** The **Main** workflow deploys the receiving service; check the
    stack has the output `SlackEventsUrl`. The **Slack app** workflow sends the new
    permissions, the events and the address to Slack, and then **fails saying the app must
    be installed again**. That is expected: a new permission only takes effect when the app
    is installed again.
 
-3. **Verify the address in Slack.** In the app's settings open **App Manifest** and follow
+2. **Verify the address in Slack.** In the app's settings open **App Manifest** and follow
    the prompt to verify the request URL. This is the first real request through the front
    door, so it also proves the signature check works.
 
-4. **Install the app again.** In the app's settings, **Install App**, then **Reinstall to
+3. **Install the app again.** In the app's settings, **Install App**, then **Reinstall to
    Workspace**. Compare the bot token on **OAuth & Permissions** with the one you stored.
-   If it has changed, store the new one in Parameter Store with the command above and
-   `--overwrite`, and in the GitHub secret `SLACK_BOT_TOKEN`.
+   If it has changed, replace it as described under [Replacing a secret](#replacing-a-secret).
 
-5. **Run the Slack app workflow by hand** with the action `apply`. It passes.
+4. **Run the Slack app workflow by hand** with the action `apply`. It passes.
 
-6. **Add STRIDEr to a channel and mention it.**
+5. **Add STRIDEr to a channel and mention it.**
 
-Until step 4 nobody is answered: the app cannot look people up without its new
+Until step 3 nobody is answered: the app cannot look people up without its new
 permission, and STRIDEr answers only people it knows are full members.
 
 ## Replacing a secret
 
-Store the new value under the same name:
+GitHub is the only place the secrets are kept by hand. To replace one:
 
-```bash
-read -rs VALUE && aws ssm put-parameter --overwrite --type SecureString \
-  --name /engineering-agents/slack/bot-token --value "$VALUE"; unset VALUE
-```
+1. Store the new value as the GitHub secret. The command prompts for it, which keeps it
+   out of your shell history:
 
-The functions read a secret again every five minutes, so the new value is in use within
-five minutes with no deployment. The same values are GitHub secrets for the Slack app
-workflow; change them there too.
+   ```bash
+   gh secret set SLACK_BOT_TOKEN --repo ServerlessOpsIO/engineering-agents
+   ```
+
+   The other is `SLACK_SIGNING_SECRET`.
+
+2. Run the **Main** workflow by hand. The deployment writes the new value to Secrets
+   Manager, and the functions pick it up within five minutes.
+
+Do not change the value in Secrets Manager directly. The next deployment would put the
+GitHub value back.
+
+| Secret in the stack | From the GitHub secret | Read by | Used for |
+| --- | --- | --- | --- |
+| `SlackSigningSecretStore` | `SLACK_SIGNING_SECRET` | `ReceiveSlackEvent` | Checking that a request came from Slack |
+| `SlackBotTokenStore` | `SLACK_BOT_TOKEN` | `AnswerSlackMessage`, `CleanUpSlackMessage` | Every call to Slack |
+
+Each function may read only its own secret. The values pass through the deployment as
+hidden parameters and are in no function's configuration.
 
 ## Finding a failure
 

@@ -29,7 +29,7 @@ OUTPUT = os.path.join(FUNC_DATA_DIR, 'output.json')
 OUTPUT_SCHEMA = os.path.join(FUNC_DATA_DIR, 'output.schema.json')
 
 SIGNING_SECRET = 'test-signing-secret-value'
-SECRET_PARAMETER = '/test/slack/signing-secret'
+SECRET_NAME = 'test-slack-signing-secret'
 # A word that appears in the sample message and nowhere else.
 DISTINCTIVE_WORD = 'heron'
 BOT = 'U0STRIDER'
@@ -124,10 +124,10 @@ def queue_url(mocked_aws) -> str:
 @pytest.fixture()
 def mock_fn(mocked_aws, queue_url, monkeypatch, mocker: MockerFixture) -> Generator[ModuleType, None, None]:
     '''The function module, with its secret, its queue and its settings in place'''
-    boto3.client('ssm', 'us-east-1').put_parameter(
-        Name=SECRET_PARAMETER, Value=SIGNING_SECRET, Type='SecureString'
-    )
-    monkeypatch.setenv('SLACK_SIGNING_SECRET_PARAMETER', SECRET_PARAMETER)
+    secret_arn = boto3.client('secretsmanager', 'us-east-1').create_secret(
+        Name=SECRET_NAME, SecretString=SIGNING_SECRET
+    )['ARN']
+    monkeypatch.setenv('SLACK_SIGNING_SECRET_ARN', secret_arn)
     monkeypatch.setenv('SLACK_MESSAGE_QUEUE_URL', queue_url)
     monkeypatch.setenv('MEMORY_EXPIRY_DAYS', '7')
     monkeypatch.setenv('POWERTOOLS_SERVICE_NAME', 'test')

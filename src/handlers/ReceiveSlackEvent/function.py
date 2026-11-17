@@ -61,9 +61,8 @@ def _output(status: int, body: Dict[str, Any]) -> Output:
 
 
 def _signing_secret() -> str:
-    return parameters.get_parameter(
-        os.environ['SLACK_SIGNING_SECRET_PARAMETER'],
-        decrypt=True,
+    return parameters.get_secret(
+        os.environ['SLACK_SIGNING_SECRET_ARN'],
         max_age=SECRET_MAX_AGE_SECONDS,
     )
 
