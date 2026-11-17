@@ -2,7 +2,7 @@
 
 The worker of the Slack receiving service. It takes one queued message at a
 time, decides whether STRIDEr should answer it, asks the agent, and posts the
-reply in the thread.
+reply: in a thread in a channel, and where the person wrote in a direct message.
 
 It handles each message once. There is no record of what has been answered,
 so running twice could post twice; a message this function does not finish
@@ -68,7 +68,7 @@ def _say(message: QueuedMessage, sentence: str, record: Dict[str, Any]) -> None:
     '''Post one fixed sentence in the thread, with the eyes on while it is posted.'''
     record['reactionAdded'] = api.add_eyes(message.channel, message.ts)
     try:
-        api.post(message.channel, message.threadTs, sentence)
+        api.post(message.channel, message.reply_thread_ts(), sentence)
     finally:
         record['reactionRemoved'] = api.remove_eyes(message.channel, message.ts)
 
@@ -98,7 +98,7 @@ def _answer(
 ) -> Outcome:
     '''Get the agent's answer and post it. The eyes are already on the message.'''
     def post(sentence: str) -> bool:
-        return api.post(message.channel, message.threadTs, sentence)
+        return api.post(message.channel, message.reply_thread_ts(), sentence)
 
     asked = text.strip_mention(message.text, bot_user_id)
     if not asked:
@@ -146,9 +146,11 @@ def _main(message: QueuedMessage, record: Dict[str, Any]) -> Outcome:
     mentioned = text.mentions(message.text, bot_user_id)
     addressed = mentioned or message.is_direct_message()
 
-    # A thread older than the agent's memory is no longer STRIDEr's. This is
-    # checked before the thread is read, so an old thread costs no call to Slack.
-    if message.isReply and thread_expired(
+    # A channel thread older than the agent's memory is no longer STRIDEr's.
+    # This is checked before the thread is read, so an old thread costs no call
+    # to Slack. A direct message is one continuous conversation and never
+    # expires: what was said in it simply ages out of the agent's memory.
+    if message.isReply and not message.is_direct_message() and thread_expired(
         message.threadTs, int(os.environ['MEMORY_EXPIRY_DAYS']), time.time()
     ):
         if not addressed:

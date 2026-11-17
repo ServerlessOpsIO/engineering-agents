@@ -448,10 +448,12 @@ def test_a_direct_message_is_queued_without_a_mention(mock_fn, mention_event, mo
 
     mock_fn.handler(signed(mention_event, payload), mock_context)
 
-    [(message, _)] = queued(queue_url)
+    [(message, attributes)] = queued(queue_url)
     assert message.channelType == 'im'
     assert message.isReply is False
     assert message.threadTs == message.ts
+    # The whole direct message is one group, so it is answered in order.
+    assert attributes['MessageGroupId'] == 'D0123ABCDEF'
 
 
 def test_a_reply_in_a_direct_message_thread_is_queued_however_old_the_thread(

@@ -40,7 +40,7 @@ class Unfinished(Exception):
 def _main(message: QueuedMessage, record: Dict[str, Any]) -> str:
     '''Do what is still owed for one message and return which case it was.'''
     since = since_message(
-        api.client(), message.channel, message.threadTs, message.ts, api.bot_user_id()
+        api.client(), message.channel, message.reply_thread_ts(), message.ts, api.bot_user_id()
     )
     if not since.has_eyes:
         return REASON_NOT_STARTED
@@ -54,7 +54,7 @@ def _main(message: QueuedMessage, record: Dict[str, Any]) -> str:
 
     # Post before removing the eyes. If the post fails this function runs
     # again, and the eyes are how it will know there is still something owed.
-    if sentence and not api.post(message.channel, message.threadTs, sentence):
+    if sentence and not api.post(message.channel, message.reply_thread_ts(), sentence):
         raise Unfinished('post')
     record['reactionRemoved'] = api.remove_eyes(message.channel, message.ts)
     return reason

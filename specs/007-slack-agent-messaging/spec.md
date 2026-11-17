@@ -56,6 +56,7 @@ lead a STRIDE exercise is a later feature.
 - Q: What should happen when the worker stops part-way through a message, so the person has the eyes reaction and nothing else? → A: A separate cleanup step, triggered by the held-back store, posts the apology and removes the reaction. The owner proposed this on 2026-11-16. Because the cleanup step empties the held-back store, the store is no longer somewhere to look at failed messages; the log is.
 - Q: What should happen in a thread that is older than the agent's memory? → A: Nothing STRIDEr does should last past the memory period (7 days by default). In an older thread, a person who addresses STRIDEr is told it no longer remembers the conversation and is asked to start a new one. From the owner's suggestion on 2026-11-16; the exact rule is the author's.
 - Q: The cross-check of the spec, plan and tasks found two gaps and ten smaller mismatches. How were they settled? → A: By the author's proposals, accepted by the owner on 2026-11-16: an empty reply with no mention gets nothing (FR-029); FR-042 lists all five departures from the template; SC-013 allows 60 minutes when the cleanup step is failing; the programs' logs are kept 30 days (FR-037); a fourth case in FR-053 for when STRIDEr's own identity cannot be found; SC-016 is accepted by design and not tested on the live stack; and the front door gives up after 3 seconds, as Slack does.
+- Q: Should STRIDEr's replies in a direct message be in threads? → A: No. Decided by the owner on 2026-11-17, after seeing it run: a direct message is one continuous conversation with one session, replies are posted in the direct message itself, and a thread there is used only when the person starts one. This replaces the earlier answer that a direct message is one session per thread. The rule for threads older than the agent's memory no longer applies to direct messages (FR-021, FR-050).
 - Q: Where are the signing secret and the bot token kept? → A: With the repository hosting service only, where feature 006 stored them. The deployment passes them to the stack, which keeps each in the cloud platform's secret store for the programs to read. Decided by the owner on 2026-11-17, replacing the earlier choice to place them in the cloud account by hand. To replace a secret, the owner stores the new value and deploys again (FR-030, FR-032).
 - Q: The review of the requirements checklist left 31 items open. How were they settled? → A: On 2026-11-16 the owner accepted the author's proposals: 22 small additions to this specification, each stating something that was only in the plan or was missing; a success criterion for "never two replies" (SC-020); the wider reach of the permission to look people up; and raising the agent's prompt length from 4,000 to 16,000 characters. Six items were set aside as not worth changing: the wording of the fixed sentences stays in the plan, the try counts stay as chosen, and three rules are left to unit tests without a success criterion of their own.
 - Q: Is the eyes reaction used when STRIDEr replies with the start-again sentence in an old thread? → A: Yes. Added, then removed once the sentence is posted.
@@ -198,24 +199,29 @@ and ask for the fact; the reply does not know it.
 ### User Story 5 - A person talks to STRIDEr in a direct message (Priority: P2)
 
 A person opens a direct message with STRIDEr and writes to it without a mention. The eyes
-reaction appears and the reply comes in a thread under their message. Each new top-level
-message starts a new conversation; replies in a thread continue that one.
+reaction appears and the reply comes in the direct message itself, not in a thread. The
+whole direct message is one continuous conversation: STRIDEr remembers what was said in it
+for as long as the agent keeps memory.
 
 **Why this priority**: Direct messages are the second way in. They use the same path as
 channels, so they add little work, but the feature is usable without them.
 
 **Independent Test**: Send STRIDEr a direct message asking a simple question. The eyes
-reaction appears and a reply is posted in a thread under the message. Reply in the thread
-referring to the first message; the answer shows the agent remembers it.
+reaction appears and a reply is posted in the direct message, outside any thread. Send a
+second message referring to the first; the answer shows the agent remembers it.
 
 **Acceptance Scenarios**:
 
 1. **Given** a direct message to STRIDEr, **When** it is sent, **Then** it gets the eyes
-   reaction and a reply in a thread under it, with no mention needed.
-2. **Given** a reply in that thread, **When** it is sent, **Then** it is answered in the
-   thread and the agent remembers the thread's earlier messages.
-3. **Given** a second top-level direct message, **When** it is sent, **Then** it starts a
-   new conversation that does not remember the first.
+   reaction and a reply in the direct message itself, outside any thread, with no mention
+   needed.
+2. **Given** a second message in the same direct message, **When** it is sent, **Then** it
+   is answered the same way and the agent remembers the first.
+3. **Given** the person starts a thread inside the direct message and writes in it, **When**
+   the message is sent, **Then** the reply goes in that thread, and it is still part of
+   the same conversation.
+4. **Given** two people each have a direct message with STRIDEr, **When** both write,
+   **Then** neither conversation knows anything said in the other.
 
 ---
 
@@ -295,9 +301,10 @@ reply appears.
   STRIDEr, nothing is shown, because the thread may not be STRIDEr's. If it does mention
   STRIDEr and the writer is a full member, the apology is posted; STRIDEr does not answer
   without the thread's earlier messages. Either way the log records a failure (FR-053).
-- A thread is older than the agent's memory: a reply with no mention is ignored. A mention
-  of STRIDEr there, or a reply in such a thread in a direct message, gets the start-again
-  sentence (FR-050).
+- A channel thread is older than the agent's memory: a reply with no mention is ignored. A
+  mention of STRIDEr there gets the start-again sentence (FR-050). A direct message never
+  reaches this cut-off: it is one continuous conversation, and what was said in it more
+  than the memory period ago is simply no longer remembered.
 - A message is more than 4 minutes old when it reaches the front door, because Slack
   delivered it late or was retrying: it is ignored and nobody is told (FR-051).
 - A person writes again in a thread while the worker has stopped part-way through their
@@ -403,8 +410,9 @@ reply appears.
 - **FR-015**: The worker MUST call the agent using the cloud account's own identity
   checking, as other callers inside the account do. The agent MUST NOT be opened to callers
   outside the account, and how the agent checks its callers MUST NOT change.
-- **FR-016**: The worker MUST post the agent's reply in the thread under the person's
-  message. A reply to a message that is already in a thread goes in that thread.
+- **FR-016**: In a channel, the worker MUST post the agent's reply in the thread under the
+  person's message. A reply to a message that is already in a thread goes in that thread.
+  In a direct message, FR-021 says where the reply goes.
 - **FR-017**: A reply longer than 11,000 characters, which is safely inside what Slack
   accepts in one message, MUST be posted as several messages in order, with no text lost.
   It is split at a paragraph break where there is one, otherwise at a line break,
@@ -442,10 +450,14 @@ reply appears.
   thread alone, so the same thread always gives the same session. Everyone who writes in a
   thread takes part in the same conversation: what one person told STRIDEr there is
   remembered when another person asks there.
-- **FR-021**: In a direct message, each top-level message MUST start a new thread and a new
-  session, and replies in that thread MUST continue it.
-- **FR-022**: Messages in one thread MUST be answered in the order they were sent. Messages
-  in different threads MUST NOT wait for each other. When the worker stops before
+- **FR-021**: A direct message with STRIDEr MUST be one continuous conversation: every
+  message in it, in a thread or not, uses the same session, and each person's direct
+  message has a session of its own. The reply MUST be posted where the person wrote: in
+  the direct message itself when they wrote there, and in the thread when they wrote in
+  one. STRIDEr MUST NOT start a thread in a direct message.
+- **FR-022**: Messages in one thread, and all the messages in one direct message, MUST be
+  answered in the order they were sent. Messages in different threads MUST NOT wait for
+  each other. When the worker stops before
   finishing a message, later messages in the same thread wait until that message has
   moved to the held-back store, about five minutes, and are then answered in order. Other
   threads are not held up.
@@ -483,14 +495,14 @@ reply appears.
   4. when the worker cannot find out STRIDEr's own identity, which it needs to recognise
      a mention, the message gets nothing.
   Each is logged as a failure with its reason.
-- **FR-050**: A thread that began longer ago than the agent keeps memory MUST be treated
-  as no longer STRIDEr's. A reply in it that does not mention STRIDEr gets nothing. A
-  message in it that mentions STRIDEr, or any reply in such a thread in a direct message,
-  gets a fixed sentence saying STRIDEr no longer remembers the conversation and asking
+- **FR-050**: A channel thread that began longer ago than the agent keeps memory MUST be
+  treated as no longer STRIDEr's. A reply in it that does not mention STRIDEr gets
+  nothing. A message in it that mentions STRIDEr gets a fixed sentence saying STRIDEr no longer remembers the conversation and asking
   the person to start a new one; the agent is not called. The eyes reaction is added
   before the sentence is posted and removed after it, as for any reply. FR-008's
   membership rule still applies first. The cut-off is the age of the thread, not the time
-  since its last message, and there is no warning before it is reached.
+  since its last message, and there is no warning before it is reached. This rule does not
+  apply to direct messages (FR-021).
 - **FR-051**: The front door MUST ignore a message that is more than 4 minutes old when
   it arrives.
 - **FR-028**: When the agent rejects a message for being longer than it accepts, the worker
@@ -603,7 +615,8 @@ reply appears.
 
 - **SC-001**: A person who mentions STRIDEr in a channel it is a member of sees the eyes
   reaction within 5 seconds and a reply in a thread under their message, in 19 of 20 tries.
-- **SC-002**: The same holds for a direct message to STRIDEr.
+- **SC-002**: The same holds for a direct message to STRIDEr, except that the reply is in
+  the direct message itself and not in a thread.
 - **SC-003**: In a thread STRIDEr has replied in, a follow-up with no mention is answered,
   and the answer uses something said earlier in the thread, in 10 of 10 tries.
 - **SC-004**: In 10 of 10 tries, a fact given in one thread is not known in another.

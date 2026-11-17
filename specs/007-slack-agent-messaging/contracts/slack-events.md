@@ -72,7 +72,7 @@ and reasons are in `data-model.md`.
 
 | Step | Action | If not |
 |------|--------|--------|
-| 0 | If the thread began more than `MemoryEventExpiryDays` ago: do step 2, then add the eyes, post the start-again sentence, remove the eyes and stop, `declined`/`thread_expired`. The thread is not read. | Step 2 fails: as step 2. |
+| 0 | Not for a direct message. If the thread began more than `MemoryEventExpiryDays` ago: do step 2, then add the eyes, post the start-again sentence, remove the eyes and stop, `declined`/`thread_expired`. The thread is not read. | Step 2 fails: as step 2. |
 | 1 | Only for a reply in a channel thread (`isReply` true, `channelType` not `im`): read the thread up to the message. Continue if the message or an earlier one mentions STRIDEr. | Never mentioned: stop, `declined`/`not_strider_thread`, nothing visible. Slack error after retries: if the message itself does not mention STRIDEr, stop, `failed`/`thread_unreadable`, nothing visible; if it does, do step 2 and then, for a full member, post the apology and stop, `failed`/`thread_unreadable`. |
 | 2 | `users.info` for the writer. A full member has the queued `teamId`, and is not restricted, a bot or deleted. | Not a full member: stop, `declined`/`not_member`. Slack cannot say after retries: stop, `failed`/`membership_unknown`. Nothing visible. |
 | 3 | `reactions.add` `eyes` on the message. | `already_reacted` is success. Anything else is logged and ignored. |
@@ -82,6 +82,10 @@ and reasons are in `data-model.md`.
 | 7 | Both attempts failed: post the apology, remove the reaction, stop, `failed`/`agent_failed`. | |
 | 8 | Post the reply in the thread, in parts of at most 11,000 characters. When there is more than one, each ends with `(part n of m)`. Each part is tried up to 3 times. | A part not posted: post the apology if no part was posted, or the reply-incomplete sentence if some were; remove the reaction; stop, `failed`/`reply_not_posted`. |
 | 9 | Remove the reaction. Stop, `answered`. | A failure to remove the reaction is logged and ignored. |
+
+Where a post goes: in a channel, always in the thread (`threadTs`). In a direct message,
+in the direct message itself, with no thread, unless the person wrote in a thread there
+(`isReply` true), in which case in that thread.
 
 Bounds: each agent call 100 seconds; the function 240 seconds. If the function is killed,
 the queue moves the message to the held-back queue after 300 seconds. The worker does not
@@ -104,7 +108,8 @@ cleanup function of section 6.
 | `auth.test` | The bot's own user ID, once per start of the function. | none |
 | `users.info` | Step 2. Remembered for an hour. | `users:read` (new) |
 | `reactions.add`, `reactions.remove` | Step 3, and whenever the worker stops after it. Cleanup removes. | `reactions:write` (new) |
-| `conversations.replies` | Step 1, for a reply in a channel thread only. Cleanup, always. | `channels:history`, `groups:history`, `im:history` |
+| `conversations.replies` | Step 1, for a reply in a channel thread only. Cleanup, for a thread. | `channels:history`, `groups:history`, `im:history` |
+| `conversations.history` | Cleanup, for a direct message outside a thread. | `im:history` |
 | `chat.postMessage` with `markdown_text` and `thread_ts` | Steps 0, 4, 5, 7 and 8. Cleanup, for the apology. | `chat:write` |
 
 ## 5. The call to the agent
@@ -119,8 +124,9 @@ The held-back queue is the work queue's dead-letter queue: FIFO, encrypted at re
 **messages kept for at most 60 minutes**. Only the work queue writes to it, when the
 worker did not finish a message. Its body is the queued message, text included.
 
-`CleanUpSlackMessage` is triggered by it, one message at a time. It reads the thread from
-the message onward with `conversations.replies`, and:
+`CleanUpSlackMessage` is triggered by it, one message at a time. It reads the conversation
+from the message onward, with `conversations.replies` for a thread and
+`conversations.history` for a direct message outside a thread, and:
 
 | The message has STRIDEr's eyes | STRIDEr has posted since | Action | Outcome |
 |--------------------------------|--------------------------|--------|---------|

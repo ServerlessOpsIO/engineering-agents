@@ -47,7 +47,8 @@
 - Three Lambda functions in `src/handlers/`: one receives and queues, one asks the agent and
   posts the reply, one cleans up after a message that was not finished.
 - Two SQS queues. No database: which threads STRIDEr takes part in is read from Slack.
-- One Slack thread is one agent session, shared by everyone in the thread. A thread's
+- One Slack thread is one agent session, shared by everyone in the thread. A direct message
+  is one continuous session, answered without threads. A thread's
   earlier messages are given to the agent the first time STRIDEr answers in it.
 - Only full members of the workspace are answered.
 - What people write is never logged, and waits in a queue for at most an hour.

@@ -136,14 +136,17 @@ def remove_eyes(channel: str, ts: str) -> bool:
         return False
 
 
-def post(channel: str, thread_ts: str, markdown: str) -> bool:
-    '''Post Markdown text in a thread. Return whether it was posted.
+def post(channel: str, thread_ts: Optional[str], markdown: str) -> bool:
+    '''Post Markdown text, in a thread or, with no thread, in the conversation itself.
 
-    Slack turns the Markdown into its own formatting.
+    Return whether it was posted. Slack turns the Markdown into its own formatting.
     '''
+    arguments = {'channel': channel, 'markdown_text': markdown}
+    if thread_ts:
+        arguments['thread_ts'] = thread_ts
     for attempt in range(POST_TRIES):
         try:
-            client().chat_postMessage(channel=channel, thread_ts=thread_ts, markdown_text=markdown)
+            client().chat_postMessage(**arguments)
             return True
         except Exception:
             if attempt < POST_TRIES - 1:

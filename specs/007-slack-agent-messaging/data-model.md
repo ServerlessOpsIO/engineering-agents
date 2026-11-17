@@ -29,7 +29,8 @@ What the front door puts on the work queue. One per message that might be answer
 
 Queue attributes:
 
-- **Message group**: `{channel}:{threadTs}`. Gives order within a thread (FR-022).
+- **Message group**: `{channel}:{threadTs}` in a channel, and `{channel}` alone for a
+  direct message, which is one conversation. Gives order within a conversation (FR-022).
 - **Deduplication ID**: `{channel}:{ts}`. Drops a second delivery within 5 minutes
   (FR-011, FR-012).
 - **Kept for** 60 minutes, then deleted unanswered.
@@ -94,7 +95,7 @@ Defined by the agent (`docs/handbook/04-architecture.md`). What this feature sen
 
 | Field | Value |
 |-------|-------|
-| `runtimeSessionId` | `slack-{teamId}-{channel}-{threadTs with "." replaced by "-"}`. One per thread (FR-020). |
+| `runtimeSessionId` | In a channel, `slack-{teamId}-{channel}-{threadTs with "." replaced by "-"}`: one per thread (FR-020). In a direct message, `slack-{teamId}-{channel}-direct-message`: one for the whole direct message (FR-021). |
 | `prompt` | The message text with STRIDEr's mention removed, preceded by thread context when FR-046 applies. At most `MaxPromptChars`. |
 | `slackUserId` | The writer's Slack ID. Information only (FR-019). The agent ignores it today. |
 | `actorId` | Not sent, so that everyone in a thread shares one memory. |

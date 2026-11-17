@@ -516,7 +516,10 @@ def test_two_people_in_one_thread_share_a_session(mock_fn, mock_event, mock_cont
 
 
 ### A direct message (User Story 5)
-def test_a_direct_message_is_answered_without_a_mention_and_without_reading_the_thread(
+DM_SESSION = 'slack-T0123ABCD-D0123ABCDEF-direct-message'
+
+
+def test_a_direct_message_is_answered_outside_any_thread_without_a_mention(
     mock_fn, mock_event, mock_context, slack, agent, thread, caplog
 ):
     event = direct_message(mock_event)
@@ -525,24 +528,39 @@ def test_a_direct_message_is_answered_without_a_mention_and_without_reading_the_
     mock_fn.handler(event, mock_context)
 
     thread.assert_not_called()
-    assert slack.done[2] == ('post', 'D0123ABCDEF', data['ts'], REPLY)
+    assert slack.steps == ['member?', 'eyes on', 'post', 'eyes off']
+    assert slack.done[1] == ('eyes on', 'D0123ABCDEF', data['ts'])
+    # No thread: the reply is posted in the direct message itself.
+    assert slack.done[2] == ('post', 'D0123ABCDEF', None, REPLY)
     assert agent.asked[0]['prompt'] == f'tell me about the {DISTINCTIVE_WORD}'
+    assert agent.asked[0]['session'] == DM_SESSION
     assert outcome(caplog) == ('answered', None)
 
 
-def test_a_reply_in_a_direct_message_thread_continues_that_threads_session(mock_fn, mock_event, mock_context, agent, thread):
-    thread_ts = ts_ago(600)
-    mock_fn.handler(direct_message(mock_event, ts=thread_ts, threadTs=thread_ts), mock_context)
-    mock_fn.handler(direct_message(mock_event, threadTs=thread_ts, isReply=True), mock_context)
-
-    first, second = agent.asked
-    assert first['session'] == second['session']
-    thread.assert_not_called()
-
-
-def test_a_second_top_level_direct_message_starts_a_new_session(mock_fn, mock_event, mock_context, agent):
+def test_a_direct_message_is_one_continuous_conversation(mock_fn, mock_event, mock_context, agent):
     mock_fn.handler(direct_message(mock_event, ts=ts_ago(60), threadTs=ts_ago(60)), mock_context)
     mock_fn.handler(direct_message(mock_event), mock_context)
+
+    first, second = agent.asked
+    assert first['session'] == second['session'] == DM_SESSION
+
+
+def test_a_reply_in_a_thread_inside_a_direct_message_is_answered_in_that_thread(
+    mock_fn, mock_event, mock_context, slack, agent, thread
+):
+    thread_ts = ts_ago(600)
+
+    mock_fn.handler(direct_message(mock_event, threadTs=thread_ts, isReply=True), mock_context)
+
+    thread.assert_not_called()
+    assert slack.done[2] == ('post', 'D0123ABCDEF', thread_ts, REPLY)
+    # Still the same conversation as the rest of the direct message.
+    assert agent.asked[0]['session'] == DM_SESSION
+
+
+def test_two_peoples_direct_messages_are_separate_conversations(mock_fn, mock_event, mock_context, agent):
+    mock_fn.handler(direct_message(mock_event, channel='D0FIRSTAAAA'), mock_context)
+    mock_fn.handler(direct_message(mock_event, channel='D0SECONDAAA'), mock_context)
 
     first, second = agent.asked
     assert first['session'] != second['session']
@@ -558,16 +576,26 @@ def test_a_guest_who_sends_a_direct_message_gets_nothing(mock_fn, mock_event, mo
     assert outcome(caplog) == ('declined', 'not_member')
 
 
-def test_a_reply_in_an_old_direct_message_thread_gets_the_start_again_sentence(
+def test_a_direct_message_never_expires_however_old_its_thread(
     mock_fn, mock_event, mock_context, slack, agent, caplog
 ):
     event = direct_message(mock_event, threadTs=ts_ago(8 * SECONDS_IN_A_DAY), isReply=True)
 
     mock_fn.handler(event, mock_context)
 
-    assert slack.posts == [text.START_AGAIN]
-    assert agent.asked == []
-    assert outcome(caplog) == ('declined', 'thread_expired')
+    assert slack.posts == [REPLY]
+    assert len(agent.asked) == 1
+    assert outcome(caplog) == ('answered', None)
+
+
+def test_the_fixed_sentences_in_a_direct_message_are_posted_outside_any_thread(
+    mock_fn, mock_event, mock_context, slack, agent
+):
+    agent.replies = [AgentFailed('RuntimeError')]
+
+    mock_fn.handler(direct_message(mock_event), mock_context)
+
+    assert slack.done[2] == ('post', 'D0123ABCDEF', None, text.APOLOGY)
 
 
 ### When something goes wrong (User Story 6)

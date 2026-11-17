@@ -1,7 +1,7 @@
 # STRIDEr Slack messaging
 
-STRIDEr answers in Slack. A person mentions it in a channel, or sends it a direct message,
-and the agent's reply appears in a thread under their message.
+STRIDEr answers in Slack. A person mentions it in a channel and the agent's reply appears
+in a thread under their message, or sends it a direct message and the reply appears there.
 
 This page describes the receiving service: the part between Slack and the agent. The Slack
 app itself, and the workflow that applies it, are in [The STRIDEr Slack app](08-slack-app.md).
@@ -16,19 +16,22 @@ feature.
   channel it is not a member of.
 - **Mention it to start.** In a channel, `@STRIDEr` and a question. In a direct message no
   mention is needed.
-- **The reply comes in a thread.** An eyes reaction on your message means STRIDEr is
-  working on it. The reaction goes when the reply is posted.
+- **In a channel the reply comes in a thread.** An eyes reaction on your message means
+  STRIDEr is working on it. The reaction goes when the reply is posted.
+- **A direct message is one continuous conversation.** STRIDEr replies in the direct
+  message itself, not in a thread, and remembers what you have said there for 7 days. If
+  you start a thread in the direct message, it replies in that thread.
 - **Carry on in the thread without mentioning it.** Once STRIDEr has been mentioned in a
   thread, it answers every message there. Everyone in the thread is in the same
   conversation.
-- **Each thread is its own conversation.** STRIDEr remembers nothing from one thread in
-  another. In a direct message, each new top-level message starts a new conversation.
+- **In a channel each thread is its own conversation.** STRIDEr remembers nothing from one
+  thread in another, or from your direct message.
 - **Bring it into an existing thread by mentioning it there.** It reads the thread's
   earlier messages the first time it answers.
 - **Only full members of the workspace are answered.** Guests and people from other
   organisations get no reaction and no reply.
-- **A thread lasts 7 days.** After that STRIDEr no longer remembers it and asks you to send
-  a new message outside the thread.
+- **A channel thread lasts 7 days.** After that STRIDEr no longer remembers it and asks you
+  to send a new message outside the thread.
 - **Group direct messages are not supported.** See issue #13.
 
 ## How it works
@@ -92,7 +95,8 @@ feature.
 
 There is no database. Whether a thread is STRIDEr's, and whether STRIDEr has answered in
 it, are read from Slack each time. The agent session for a thread is worked out from the
-thread: `slack-<team>-<channel>-<thread timestamp>`.
+thread: `slack-<team>-<channel>-<thread timestamp>`. A direct message has one session for
+the whole of it: `slack-<team>-<channel>-direct-message`.
 
 The receiving service exists only in the stack deployed from `main`. A branch stack has
 the agent and none of this.
@@ -118,7 +122,7 @@ them.
 | The agent failed twice, or the worker stopped part-way | Sorry, I couldn't answer that. Please try again later. |
 | The message is longer than `MaxPromptChars` | That message is too long for me to read. Please shorten it and try again. |
 | A mention or a direct message with no text | What would you like help with? |
-| The thread is more than `MemoryEventExpiryDays` old | I no longer remember this conversation. Please send me a new message outside this thread to start again. |
+| A channel thread is more than `MemoryEventExpiryDays` old | I no longer remember this conversation. Please send me a new message outside this thread to start again. |
 | Only part of a long reply could be posted | I couldn't post my whole reply. Please ask again. |
 
 A reply over 11,000 characters is posted in parts, each ending `(part 1 of 3)`.
