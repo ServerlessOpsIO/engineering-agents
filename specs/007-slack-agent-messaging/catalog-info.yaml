@@ -1,0 +1,28 @@
+apiVersion: backstage.io/v1alpha1
+kind: Resource
+metadata:
+  name: engineering-agents-spec-007
+  title: "007 - STRIDEr Slack messaging"
+  description: "As a developer my Slack app can communicate with its AI backend"
+  annotations:
+    github.com/project-slug: ServerlessOpsIO/engineering-agents
+    serverlessops.io/spec-dir: specs/007-slack-agent-messaging
+    serverlessops.io/spec-number: "007"
+    serverlessops.io/spec-type: "feature"
+    backstage.io/source-location: url:https://github.com/ServerlessOpsIO/engineering-agents/tree/main/specs/007-slack-agent-messaging/
+    backstage.io/techdocs-ref: dir:.
+  tags:
+    - speckit
+  links:
+    - url: https://github.com/ServerlessOpsIO/engineering-agents/blob/main/specs/007-slack-agent-messaging/spec.md
+      title: Specification
+      icon: docs
+    - url: https://github.com/ServerlessOpsIO/engineering-agents/blob/main/specs/007-slack-agent-messaging/plan.md
+      title: Implementation plan
+      icon: docs
+spec:
+  type: doc-spec
+  owner: group:00gjdgxs1ur6lsu
+  system: slack-ai-agent
+  dependsOn:
+    - component:default/engineering-agents
