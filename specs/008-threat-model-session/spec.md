@@ -288,8 +288,8 @@ structural check and leaves a transcript.
 - **A participant asks for an example of a threat to the kind of element being discussed**:
   STRIDEr gives an example from a different kind of system and asks how the idea applies to
   theirs.
-- **One participant asks to finish and another objects**: STRIDEr waits, and the session
-  continues until they agree.
+- **One participant asks to finish and another objects**: the request is dropped and the
+  session continues. When they agree, one of them asks again.
 - **Participants cannot agree**: STRIDEr records the point as an open question and moves on.
 - **Nobody knows the answer to a question**: it is recorded as an open question.
 - **No threats are named for an element and category**: the coverage table records "none
@@ -326,6 +326,10 @@ structural check and leaves a transcript.
 - **A change is asked for after the model is posted**: the participants make the change in
   conversation and STRIDEr posts the model again. If the notes have been posted, the change
   is marked (FR-059).
+- **A person who took no part in the session writes after it has finished**: they can
+  change the model and make decisions like anyone else, and each is marked as made after
+  the notes. The written model lists them apart from the participants, as having joined
+  after the session.
 - **A participant says "add everything in your notes to the model"**: STRIDEr does not. The
   participants name, rate and decide each one, and each is marked.
 - **The agent fails while writing the model**: feature 007's apology applies, and the session
@@ -393,11 +397,14 @@ structural check and leaves a transcript.
 - **FR-014**: Participants MUST be able to go back to an earlier stage and to skip a stage.
   A skipped stage MUST be marked as skipped in the written model.
 - **FR-060**: Any participant MAY ask to skip a stage, to finish the session or to abandon
-  it. When the session has more than one participant, STRIDEr MUST first say what is about
-  to happen and MUST act only when the next message arrives and is not an objection. When a
-  participant objects, STRIDEr waits until the participants have settled it. STRIDEr can
-  act only when a message arrives, so it never acts on silence alone. With one participant
-  it acts at once, apart from the warning before the notes are posted (FR-056).
+  it. STRIDEr MUST first say what is about to happen, and MUST act only when the next
+  message arrives and is not an objection. It can act only when a message arrives, so it never
+  acts on silence alone. When a participant objects, the request is dropped and the
+  session carries on; when the participants are ready, one of them asks again and STRIDEr
+  announces again. There is one exception to announcing first: with a single participant,
+  a stage is skipped at once. Finishing and abandoning are always announced first, with
+  one participant or several, because both post the notes and FR-056 requires a warning
+  before that.
 - **FR-015**: A session MUST be able to stop and continue later, for as long as the agent
   remembers the conversation (7 days by default). Nothing in this feature keeps a session
   longer.
@@ -534,7 +541,9 @@ structural check and leaves a transcript.
   and STRIDEr posts it again. Every threat, rating, mitigation or decision added or changed
   after that point MUST be marked in the model as changed after the facilitator's notes. The
   rule that participants do the work (FR-018) still holds for each change: STRIDEr MUST NOT
-  turn a note into a model entry itself. The notes are not posted a second time.
+  turn a note into a model entry itself. The notes are not changed after they are first posted. They are sent again, as they were,
+  whenever the model is asked for after the session has ended, so that a file that did not
+  arrive can be had (FR-039).
 
 **Rating**
 
@@ -592,8 +601,10 @@ structural check and leaves a transcript.
   to any log, workflow output, issue or pull request. A log may record that a repository was
   read, its name, and how many files were read.
 - **FR-051**: Everything features 001 to 007 provide MUST still work, and their tests MUST
-  pass. The changes this feature makes to them are: what the agent is told (FR-001), the
-  writer's name (FR-030), and no reply (FR-029).
+  pass. The changes this feature makes to them are: what the agent is told (FR-001); the
+  writer's name (FR-030); no reply (FR-029); documents delivered as files, with one new
+  Slack permission and one new sentence for a file that cannot be delivered (FR-038,
+  FR-039); and an identifier for each message, so that a repeated request is recognised.
 - **FR-052**: The handbook MUST describe the persona and skills, how to change or add a
   skill, how a session runs, the repository rules, and how to run the command in FR-048.
 

@@ -25,6 +25,7 @@ what must be tried and what happens if it turns out wrong.
 | F7 | One stored message may be 100 KB; one event 10 MB. Writes are limited to 5 a second per conversation. | Documented | AgentCore devguide, limits |
 | F8 | A failed read of the conversation returns an empty list, not an error. A memory fault would look like a conversation that has forgotten everything. | Source | as F5 |
 | F9 | The runtime allows a 15-minute request. This stack sets idle timeout 300 s and maximum lifetime 1,800 s, after which the container is discarded and the next request restores from memory. | Documented, Source | AgentCore devguide, limits; `template.yaml` |
+| F11 | Strands reads the agent's system prompt and its list of tools afresh before each call to the model within one request, and runs `BeforeModelCallEvent` hooks first. Tools can be added to and removed from the registry (`register_tool`, `remove`). | Source | `event_loop/event_loop.py`, `tools/registry.py`, `hooks/events.py` (1.65.0) |
 | F10 | A runtime in `PUBLIC` network mode, as this one is, can make outbound HTTPS requests. Whether its outbound addresses are shared with other AWS customers is not documented. | Documented; the second part unknown | AWS CDK and networking blog |
 
 ## Facts checked: the model
@@ -149,7 +150,7 @@ categories by element, and OWASP for the rating method.
   - Rules that can be counted are kept by code: one hint per element per stage, notes only
     at the end, "act on the next message", a held-back repository finding, who took part,
     and the mark on a change made after the notes.
-- **What it costs**: about twenty small tools and a renderer to write and test, where the
+- **What it costs**: 25 small tools and a renderer to write and test, where the
   alternative was prose. The model must call the tools reliably; the fixed session tests
   that. What the model passes to a tool is still its own account of what people said
   (FR-024), which only a person reading a transcript can check.
@@ -178,6 +179,11 @@ categories by element, and OWASP for the rating method.
   session record; the active skill's instructions; the reference file for the current
   stage only; the list of skills; the persona. The tools offered are those of the current
   stage.
+- **Rebuilt before every model call**, by a hook (F11), and not once for each request.
+  A tool can start a session or change the stage in the middle of a request, and the
+  model's next words must follow the new stage's instructions. The owner chose this on
+  2026-11-19 over letting the instructions lag one message behind. It is read in the
+  framework's source and not yet tried (open item O9).
 - **Rationale**: M3 (instructions last, so the persona's rules are read last) and M4. A
   small prompt and few tools are the best defence against a small model losing its rules.
   The stage's reference file is the Agent Skills format's own idea of loading detail only
@@ -188,7 +194,8 @@ categories by element, and OWASP for the rating method.
 - **Decision**: Skills live in `src/agent/skills/<name>/`. They are read and validated
   at start-up with the framework's `Skill` class, strictly (F2). The framework's plugin
   (F1) is not used. A skill becomes active when the model calls `start_session`; from
-  then on its instructions are in the system prompt for as long as the session lasts.
+  then on its instructions are in the system prompt for as long as its record exists, which includes after the session has
+  finished, until a new one starts.
 - **Rationale**: The plugin delivers a skill's instructions as a tool result. Under
   Decision 2 that result is gone by the next request, and under F3 it would leave the
   window anyway. A skill's instructions must be present on every turn of a session.
@@ -235,7 +242,7 @@ categories by element, and OWASP for the rating method.
 - **Decision**: Three tools (`contracts/session-tools.md`). One request to GitHub for
   the repository, one for its list of files, then each file from
   `raw.githubusercontent.com` at the commit the list was taken at (G2, G4, G5). The list
-  is kept in the session record, so a session costs two counted requests for each
+  is kept in the agent's state, so a session costs two counted requests for each
   repository. Standard library only; no new package.
 - **Kept by code**: the owner is fixed by a setting; the name must have been written by a
   person in the conversation; redirects are not followed (G3); the answer must say the
@@ -281,11 +288,12 @@ categories by element, and OWASP for the rating method.
 
 | # | What is not known | How it is found out | If it is wrong |
 |---|-------------------|---------------------|----------------|
-| O1 | **Whether Nova 2 Lite can hold the rules and call the tools through a whole session.** The largest risk. | An early task plays the fixed session as soon as the skill's first draft and the tools exist. | Shorten the skill; turn reasoning on; or the owner changes `ModelId`, which is one line and outside this feature's scope. |
+| O1 | **Whether Nova 2 Lite can hold the rules and call the tools through a whole session.** The largest risk. | An early task plays the fixed session as soon as the skill's first draft and the tools exist. | Shorten the skill and try once more. If it still cannot, stop: Nova 2 Lite is a stopgap, and the owner decides whether to wait for the model that replaces it. `ReasoningEffort` is not tried (issue #20). |
 | O2 | Whether the agent's traces carry message text. **Looked at on 2026-11-19, read-only, in the `main` stack's account.** Read in source: Strands 1.65.0 puts user messages, replies, the system prompt, tool arguments and tool results on its spans unless `OTEL_SEMCONV_STABILITY_OPT_IN` carries `gen_ai_unredacted_attributes=`; the Bedrock call instrumentor captures content only when `OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT` is true. Neither is set in this stack. Seen in the account: X-Ray's trace destination is `XRay` and its indexing is 0%, which is CloudWatch Transaction Search turned off; seven six-hour windows across the last three days held no trace; the runtime's `otel-rt-logs` stream holds ordinary log records with no `gen_ai` field and no body over 320 characters. **So no message text is being stored today, because no traces are.** Not proven for every hour of the last 30 days. | Done, as far as it can be without traces. | Text would start to be stored the moment Transaction Search is turned on, which the handbook lists as a prerequisite. Task T006 sets both settings first. |
 | O3 | Whether GitHub's limit of 60 an hour is usable from the runtime's outbound address (F10, G1). | Scenario G of the quickstart, and the log's count of refusals afterwards. | STRIDEr says it cannot read and carries on, as designed. The lasting answer is a credential, which is issue #18. |
 | O4 | Uploading a file into a direct message, and how Slack shows a `.md` file (S7, S8). | Scenario D and E. | Try `snippet_type`. If a direct message refuses the upload, the person sees the document-not-posted sentence. No fallback is built in advance; task T031 stops and the owner decides. |
-| O5 | That leaving tool traffic out on restore never leaves the conversation in an order the model rejects. | A unit test in task T018, covering a turn that failed part-way, which the fixed session cannot produce; then the fixed session. | Keep tool traffic, and cut a file's content down to a line once recorded. |
+| O5 | That leaving tool traffic out on restore never leaves the conversation in an order the model rejects. | A unit test in task T018, covering a turn that failed part-way, which the fixed session cannot produce; then the fixed session. | Where two messages from a person are left running, the agent joins them (`contracts/agent-interface.md`). If the order still fails: keep tool traffic, and cut a file's content down to a line once recorded. |
 | O6 | That the agent's state is restored on every request, including after the container is discarded (F6, F9). | Scenario E, step 4. | Without it there is no feature. Nothing suggests it fails. |
 | O7 | That a memory fault shows as an empty session (F8). | Cannot be forced. | A participant is told there is no session in progress. Accepted; noted in the handbook. |
+| O9 | That changing the system prompt and the tools from a `BeforeModelCallEvent` hook takes effect on the very next model call (F11). | A unit test in task T018 with a fake model that records what it was sent on each call; then the fixed session's first turn. | Fall back to having the tool's answer carry the next stage's guidance, with full instructions from the next message. |
 | O8 | Speed (M5): several tool calls and a reply inside 100 seconds. | The fixed session reports each turn's time. | Lower the number of files read in one request. |

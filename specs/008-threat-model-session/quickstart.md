@@ -33,7 +33,7 @@ tests, see at least one fail, and undo the change:
 1. Delete one rule from `src/agent/persona.md`. Repeat for each rule in FR-003.
 2. Delete one stage's reference file from the skill.
 3. Add a line of session instruction to the persona, such as "Ask for the scope first."
-4. Remove `SOURCE.md` from the skill, if it has one.
+4. Remove `SOURCE.md` from the skill.
 
 ## B. One prompt outside a session (US5; FR-005)
 
@@ -73,7 +73,7 @@ these, and the checklist says what to look for:
 | A message from one participant to another | No reply. |
 | A question to the group; a disagreement; a mention | A reply each time. |
 | A request for the model part-way | The model with unfinished stages marked. No notes. |
-| One participant asks to finish; another objects; later both agree | Nothing happens until they agree. A warning before the notes. |
+| One participant asks to finish; another objects; later one asks again and the other agrees | The objection drops the request. The second ask is announced again, with the warning, and the files come on the next message. |
 | A change after the notes | The entry carries `†`. |
 
 Run it three times. The model that drives STRIDEr does not answer the same way twice, and
@@ -111,6 +111,10 @@ In a channel STRIDEr is in, with a colleague:
    where it stopped.
 5. Time a whole session on a system of five elements. Expected: under 60 minutes
    (SC-013).
+6. Start another session, take it into the system stage, and say you want to abandon it.
+   Expected: a warning that the notes are about to be posted. On your next message, a
+   file with the model, marked `Abandoned` with its unfinished stages listed, and a file
+   with the notes. You did not have to ask for either.
 
 ## F. Asking for the work (US2)
 

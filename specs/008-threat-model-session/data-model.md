@@ -13,6 +13,17 @@ the conversation (AgentCore Memory, kept 7 days by default):
 
 Names, message text and repository content are in both. Neither is ever logged (FR-050).
 
+## What the agent keeps in its state
+
+Four keys, saved and restored with the conversation.
+
+| Key | Holds | Exists |
+|-----|-------|--------|
+| `session` | The session record, below. | From the start of a session. A new session replaces it. |
+| `repositories` | The repositories people have named, and what was listed and read ("Repository", below). | From the first repository named, which may be before any session. |
+| `lastMessageId` | The `messageId` of the request being handled, or last handled. | From the first request that carries one. |
+| `sessionBefore` | `session` and `repositories` as they were before the current message ("A request that is repeated", below). | From the first request that carries a `messageId`. |
+
 ## Session record
 
 Kept under the key `session` in the agent's state. One per conversation, so one session
@@ -25,15 +36,14 @@ at a time per thread and per direct message (FR-016). Absent until a session sta
 | `system` | string | The system's name, as the participants gave it. |
 | `startedOn` | date | UTC date of the first message of the session. |
 | `turn` | integer | Counts messages since the session started. Used to tell "the next message" from the same one (FR-060). A repeated request for the same message does not advance it. |
-| `lastMessageId` | string, or none | The `messageId` of the request being handled, or last handled. |
 | `stage` | stage name | The current stage. |
 | `stages` | map of stage name to `not_started` \| `in_progress` \| `complete` \| `skipped` | Stage names: `scope`, `system`, `threats`, `rating`, `mitigations`, `model` (FR-010). |
-| `participants` | list of names | In order of first message. Added by code from each request's `speakerName`, never by the model. |
+| `participants` | list of names | People who wrote while the session was in progress, in order of first message. Added by code from each request's `speakerName`, never by the model. |
+| `joinedAfter` | list of names | People who first wrote after the session was finished or abandoned. Added by code in the same way. They can make changes and decisions, each of which is marked as made after the notes. |
 | `scope` | list of scope items | |
 | `elements` | list of elements | |
 | `boundaries` | list of trust boundaries | |
 | `descriptionComplete` | boolean | Set when the participants say their description of the system is complete (FR-058). |
-| `repositories` | list of repositories | Kept beside the record, under the state key `repositories`, because a repository may be named and read before a session starts. A session that starts takes over what is there. |
 | `findings` | list of repository findings | |
 | `threats` | list of threats | |
 | `noneFound` | list of (element, category) | Where the participants looked and chose to record no threat. |
@@ -43,17 +53,20 @@ at a time per thread and per direct message (FR-016). Absent until a session sta
 | `notes` | list of notes | |
 | `pending` | pending change, or none | |
 | `notesPostedOnTurn` | integer, or none | Set when the facilitator's notes are posted. |
+| `removedAfterNotes` | list of identifiers | Threats and mitigations removed after the notes were posted, so that the written model can say so (FR-059). |
 
 ### A request that is repeated
 
 The Slack worker asks the agent a second time when the first attempt fails, and the first
-attempt may already have changed the record. So, beside the record, the agent keeps a copy
-of it as it was before the current message, under the key `sessionBefore`.
+attempt may already have changed what the agent keeps. So the agent keeps a copy of
+`session` and `repositories` as they were before the current message, under the key
+`sessionBefore`. `lastMessageId` is a key of its own, so the rule works when there is no
+session.
 
 | When a request arrives | The agent |
 |---|---|
-| Its `messageId` differs from `lastMessageId`, or it has none | Copies the record to `sessionBefore`, sets `lastMessageId`, advances `turn`. |
-| Its `messageId` equals `lastMessageId` | Puts `sessionBefore` back as the record, with `lastMessageId` kept, and does not advance `turn`. Whatever the first attempt recorded is undone, and this attempt records it once. |
+| Its `messageId` differs from `lastMessageId`, or it has none | Copies `session` and `repositories` to `sessionBefore`, sets `lastMessageId`, and advances `turn` when a session is in progress. |
+| Its `messageId` equals `lastMessageId` | Puts `sessionBefore` back as `session` and `repositories`, and does not advance `turn`. Whatever the first attempt recorded is undone, and this attempt records it once. |
 
 This covers a session that the first attempt started: `sessionBefore` then holds "no
 session". The conversation itself still holds the message twice, as it has since feature
@@ -97,6 +110,16 @@ Given by code, never by the model, and never reused in a session.
 Removing an element removes its data flows, its `noneFound` entries and its place in any
 boundary. It is refused while a threat names it.
 
+**Removing other things** (`remove_item`):
+
+| Removed | What follows |
+|---------|--------------|
+| A threat | It is taken out of every mitigation's `threats`. A mitigation left with none is removed too, and the tool's answer says so. |
+| A mitigation, a trust boundary, a scope item, an open question | Nothing else changes. |
+| A threat or a mitigation, after the notes were posted | Its identifier is added to `removedAfterNotes`. |
+
+Hints, notes and findings cannot be removed.
+
 **STRIDE categories that apply to each kind** (`research.md`, Decision 9). The coverage
 table has a cell for each:
 
@@ -131,7 +154,7 @@ participants say so. The coverage table then gains that cell.
 | `severity` | `note` \| `low` \| `medium` \| `high` \| `critical`, or none | Worked out by code from the table in FR-044 whenever both values are present. Never supplied by the model. |
 | `decision` | `mitigate` \| `accept` \| `transfer` \| `avoid`, or none | (FR-046) |
 | `decisionReason` | string | Required when the decision is `accept`. |
-| `decidedBy` | list of names | Each must be in `participants` (FR-057). |
+| `decidedBy` | list of names | Each must be in `participants` or `joinedAfter` (FR-057). |
 | `owner` | string, or none | As the participants wrote it. May be a person outside the session or a team. |
 | `ownerAsked` | boolean | Set once STRIDEr has asked for an owner, so it asks once. |
 | `changedAfterNotes` | boolean | Set by code when the threat is added or changed after the notes were posted (FR-059). |
@@ -171,6 +194,17 @@ message still being among the messages the model is shown.
 | `filesRead` | list of paths | In the order read. Named in the written model (FR-035). |
 | `unread` | string, or none | Why something could not be read: `rate_limited`, `too_large`, `unavailable`. |
 
+Rules for where this sits beside a session:
+
+- **Before a session**: a repository can be named, listed and read. Nothing can be
+  recorded as a finding, because findings belong to a session; `hold_finding` is not
+  offered.
+- **When a session starts**: the entries are kept, so a repository named just before is
+  still named. Each entry's `filesRead` is emptied, so the written model lists only files
+  read during the session, and the limit of 30 files counts from the start of the session.
+- **A repeated request** restores the entries with the record.
+- **The written model** is made from the record and the entries together.
+
 A repository nobody named leaves no entry. One that was named and then refused by GitHub
 (private, missing, outside the organisation) keeps its entry with `listed` false, and is
 asked for again only when a tool is called for it again.
@@ -183,7 +217,8 @@ What STRIDEr found in a repository that bears on the participants' description.
 |-------|------|-------|
 | `id` | identifier | |
 | `kind` | `differs` \| `not_mentioned` | (FR-035, FR-054) |
-| `file` | path | Must be in `filesRead`. |
+| `repository` | string | The repository the file is in. Must have an entry. |
+| `file` | path | Must be in that repository's `filesRead`. |
 | `fact` | string | Stated as a fact about the repository. |
 | `reported` | boolean | False while it is held back. Findings made before `descriptionComplete` stay unreported until then, and are handed to the model together at that moment (FR-058). |
 
@@ -231,8 +266,12 @@ on (FR-060).
 | Field | Type | Rules |
 |-------|------|-------|
 | `action` | `skip_stage` \| `finish` \| `abandon` | |
-| `stage` | stage name | For `skip_stage`. |
+| `stage` | stage name | For `skip_stage`: the stage the session was in when the skip was asked for. Only the current stage can be skipped. |
 | `announcedOnTurn` | integer | The change can be confirmed only on a later turn. |
+
+At most one change is pending. A message that objects drops it (`resolve_change` with
+`confirmed` false), and a new request is needed later; asking for a change while one is
+pending replaces it and must be announced afresh.
 
 With one participant, `skip_stage` is applied at once and nothing is pending. `finish`
 and `abandon` are always announced first, because both post the notes and FR-056
@@ -248,12 +287,25 @@ no session ──start──▶ in_progress ──finish (confirmed)──▶ fi
                             finished: the record can still be changed; each change is marked
 ```
 
-- Stages are entered in order, and any stage can be gone back to. Going back leaves later
-  stages as they were; they read the changed record (US6, scenario 3).
-- A stage becomes `skipped` only through a confirmed `skip_stage`.
+- Stages are normally entered in order, by completing the one before. `go_to_stage` can
+  enter any stage, earlier or later. Entering a stage sets it `in_progress`. The stage
+  that was left keeps the status it had, so a stage left unfinished stays `in_progress`
+  and is shown as not finished. Going back leaves later stages as they were; they read
+  the changed record (US6, scenario 3).
+- A stage becomes `complete` only through `complete_stage`, and `skipped` only through a
+  confirmed `skip_stage`. Both then enter the next stage in order.
+- Completing or skipping the system stage sets `descriptionComplete` only when it is
+  completed, not when it is skipped (`contracts/session-tools.md`).
+- In the last stage, `model`, there is no next stage. `complete_stage` marks it complete
+  and its answer tells the model to ask whether the participants want to finish.
+- A confirmed `finish` marks the `model` stage complete and changes no other stage's
+  status. A session can therefore be finished with stages skipped or not finished, and
+  the written model says so.
 - `finish` posts the written model and the facilitator's notes, sets `status` to
-  `finished` and sets `notesPostedOnTurn`. The notes are never produced any other way, and
-  never twice.
+  `finished` and sets `notesPostedOnTurn`. The notes are first produced this way or by
+  `abandon`, and no other. After that, asking for the model gives the notes again as
+  well, so that a file that failed to arrive can be had. Their content cannot change:
+  no hint or note can be added once the session has ended.
 - `abandon` posts the written model as it stands, with its unfinished stages marked, and
   the notes, and sets `status` to `abandoned` and `notesPostedOnTurn`. Nobody has to ask.
 - A new session can start once the status is `finished` or `abandoned`.
@@ -290,7 +342,7 @@ for the membership rule, and remembered with the membership answer for an hour.
 | Source | `profile.display_name`; when empty, `profile.real_name`; when empty, `real_name`. |
 | Cleaning | Line breaks and control characters removed, runs of spaces made one, `<`, `>` and backticks removed, cut to 80 characters. |
 | Unknown | When Slack cannot say, or nothing is left after cleaning: `Someone`. A name that cannot be found never stops a message being answered. |
-| Mentions in text | `<@U…>` and `<@U…\|label>` become the person's name, for up to 10 different people in a message; further ones become `someone`. STRIDEr's own mention is removed as before. |
+| Mentions in text | `<@U…>`, `<@W…>` and either with `\|label` become the person's name, for up to 10 different people in a message; further ones become `someone`. STRIDEr's own mention is removed as before. |
 | Thread context | Each earlier message is given with its writer's name in place of `<@U…>`. |
 
 ### Outcomes
@@ -329,7 +381,7 @@ A folder under `src/agent/skills/`, in the Agent Skills format.
 |------|-------|
 | `SKILL.md` | Front matter (`name`, `description`, `license`, `allowed-tools`, `metadata`) and the instructions for the whole session. |
 | `references/<stage>.md` | One per stage. Only the current stage's file is given to the model. |
-| `SOURCE.md` | Where the skill or any part of it came from, and under what licence (FR-008). Required when `metadata.adopted` is true, and for any material restated from elsewhere. |
+| `SOURCE.md` | Where the skill and anything it restates came from, and under what licence (FR-008). Required for every skill, adopted or written here, and it must name a licence. The agent does not start without it. |
 
 `metadata.stages` lists the stage names in order, which is how the code knows which
 reference file to give. `allowed-tools` lists the tools the skill uses.

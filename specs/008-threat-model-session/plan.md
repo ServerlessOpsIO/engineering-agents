@@ -137,8 +137,11 @@ Three things the owner should know that are not decisions:
   tried. The plan tries it early. The owner said on 2026-11-19 that Nova 2 Lite is a
   stopgap until an OpenAI or Anthropic model is enabled in the account, so a poor result
   on Nova is a reason to wait for that model, not to redesign.
-- **The agent's traces may carry message text today** (O2). Not checked. With this
-  feature, names and repository content pass the same way. It is checked before go-live.
+- **The agent's traces would carry message text if they were being stored** (O2).
+  Looked at on 2026-11-19: no traces are stored today, because CloudWatch Transaction
+  Search is off. The moment it is turned on, message text, names and repository content
+  would go to X-Ray. Task T006 sets two settings that prevent it, before anything else
+  is deployed.
 - **GitHub without a credential may be refused often** (O3), because the limit is per
   network address and the runtime's address is AWS's. STRIDEr then says so and carries
   on. The fix is issue #18.
@@ -241,8 +244,10 @@ worker's changes stay in the shared package where its Slack code already lives.
      request and reply changes in the agent; `play_session.py`.
   3. **Deploy and play the fixed session.** This is the test of the largest risk (O1).
      Stop and tell the owner what it shows before going further.
-  4. The repository tools.
-  5. The worker: names, no reply, file upload; the manifest.
+  4. The worker's file upload and the manifest, so that one person can receive a model
+     in Slack.
+  5. The rules about doing the work; then names and no reply in the worker, and the
+     repository tools, in either order.
   6. The persona's final wording with the owner; the handbook; the quickstart.
 - **The deployment in step 3 is safe before the worker changes**: a request without the
   new fields is treated as a direct message that must be answered, and the old worker

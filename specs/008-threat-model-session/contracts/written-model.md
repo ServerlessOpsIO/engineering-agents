@@ -21,7 +21,7 @@ Headings are exactly these, in this order (FR-037). Every section is always pres
 ```markdown
 # Threat model: {system}
 
-> Status: **{Complete | In progress | Abandoned}**. {One line per unfinished or skipped stage.}
+> Status: **{Complete | Finished | In progress | Abandoned}**. {One line per unfinished or skipped stage.}
 
 ## Summary
 ## Scope
@@ -36,18 +36,24 @@ Headings are exactly these, in this order (FR-037). Every section is always pres
 
 ### Status line
 
-`Complete` when the session is finished. Otherwise `In progress` or `Abandoned`, followed
-by one line for each stage that is not complete: `Not finished: Rating.` or
+`Complete` when the session is finished and every stage is complete. `Finished` when it
+is finished and a stage was skipped or left unfinished. Otherwise `In progress` or
+`Abandoned`. Every status but `Complete` is followed by one line for each stage that is
+not complete: `Not finished: Rating.` or
 `Skipped: Rating.` (FR-014, FR-040). A section whose stage is skipped or not started
 begins with the same words.
 
 When anything is marked as changed after the notes (FR-059), the status block gains:
 `Entries marked † were added or changed after the facilitator's notes were posted.`
+And, when anything was removed after the notes:
+`Removed after the facilitator's notes were posted: T3, M2.`
 
 ### Summary
 
 A list: **System**, **Date** (the day the document was made), **Session started**,
-**Participants** (names, in order of first message), and **Threats by severity**: a count
+**Participants** (names, in order of first message), **Joined after the session** (the
+names of people who first wrote after it was finished or abandoned; left out when there
+are none), and **Threats by severity**: a count
 for each of Critical, High, Medium, Low, Note and Not rated.
 
 ### Scope
@@ -160,4 +166,5 @@ Fixed text, with a link to each source:
   and what was questioned.
 - An empty section reads `Nothing.`
 
-Made only by a confirmed `finish` or `abandon`, once per session (FR-056).
+First made by a confirmed `finish` or `abandon`, and never before (FR-056). After that
+they come again, unchanged, whenever the model is asked for.
