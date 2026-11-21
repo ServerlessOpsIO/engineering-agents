@@ -16,6 +16,7 @@ caller's IAM role and a `runtimeSessionId`.
   "conversationType": "channel_thread",
   "addressed": false,
   "messageId": "C0123ABCD:1795123201.951000",
+  "threadEndsAt": "2026-11-26T14:00:01Z",
   "slackUserId": "U012AB3CD"
 }
 ```
@@ -27,6 +28,7 @@ caller's IAM role and a `runtimeSessionId`.
 | `conversationType` | no | `channel_thread` or `direct_message`. Missing or anything else: `direct_message`, so that a caller that says nothing always gets a reply. |
 | `addressed` | no | True when the message mentions STRIDEr. Missing: true. |
 | `messageId` | no | Identifies the message being answered. The Slack worker sends `{channel}:{ts}`. A second request with the same value in the same conversation is a retry: the agent first undoes what the earlier attempt recorded (`data-model.md`, "A request that is repeated"). Missing: every request is a new message. Never logged with anything that names a person; it is the same pair the worker already logs. |
+| `threadEndsAt` | no | For a channel thread: when the thread will stop being answered, which is its first message's time plus the memory period (feature 007). UTC. Not sent for a direct message. The agent gives it in the opening of a session and, when less than 24 hours remain, tells the model once to warn the participants and offer the model as it stands (FR-015). |
 | `slackUserId` | no | Still ignored. |
 | `actorId` | no | As before. The Slack worker still does not send it. |
 
@@ -119,8 +121,8 @@ Changes to feature 007's contract, section 3:
    sentence once; outcome `failed`, `document_not_posted`. Asking STRIDEr for the model
    again brings every document the session has released.
 3. Before calling the agent, the worker looks up the writer's name and the names of
-   people mentioned, and sends `speakerName`, `conversationType`, `addressed` and
-   `messageId`.
+   people mentioned, and sends `speakerName`, `conversationType`, `addressed`,
+   `messageId` and, for a channel thread, `threadEndsAt`.
 
 A document's content is never logged, by the agent or the worker.
 

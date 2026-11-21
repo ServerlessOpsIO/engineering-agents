@@ -146,6 +146,17 @@ Three things the owner should know that are not decisions:
   network address and the runtime's address is AWS's. STRIDEr then says so and carries
   on. The fix is issue #18.
 
+## Owner's answers
+
+Given on 2026-11-19.
+
+| Decision | Answer |
+|----------|--------|
+| 1. The Slack permission `files:write`, and installing the app again | Yes. |
+| 2. We write our own skill | Yes, with a condition: the skill must be comprehensive and cover everything for STRIDE. That is now FR-062 and SC-015. |
+| 3. The session is a record kept by code, and code lays out the model | Yes. |
+| Nova 2 Lite | A stopgap until an OpenAI or Anthropic model is enabled in the account. Its limits are not a reason to constrain the design. |
+
 ## Project Structure
 
 ### Documentation (this feature)

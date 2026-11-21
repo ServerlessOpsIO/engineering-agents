@@ -15,13 +15,14 @@ Names, message text and repository content are in both. Neither is ever logged (
 
 ## What the agent keeps in its state
 
-Four keys, saved and restored with the conversation.
+Five keys, saved and restored with the conversation.
 
 | Key | Holds | Exists |
 |-----|-------|--------|
 | `session` | The session record, below. | From the start of a session. A new session replaces it. |
 | `repositories` | The repositories people have named, and what was listed and read ("Repository", below). | From the first repository named, which may be before any session. |
 | `lastMessageId` | The `messageId` of the request being handled, or last handled. | From the first request that carries one. |
+| `lastMessageDone` | Whether the handling of the last message reached its end. Set false when a message is taken up and true when its reply is ready. | From the first request. |
 | `sessionBefore` | `session` and `repositories` as they were before the current message ("A request that is repeated", below). | From the first request that carries a `messageId`. |
 
 ## Session record
@@ -53,6 +54,7 @@ at a time per thread and per direct message (FR-016). Absent until a session sta
 | `notes` | list of notes | |
 | `pending` | pending change, or none | |
 | `notesPostedOnTurn` | integer, or none | Set when the facilitator's notes are posted. |
+| `endWarned` | boolean | Set once STRIDEr has been told to warn that a channel thread has less than a day left, so it warns once (FR-015). |
 | `removedAfterNotes` | list of identifiers | Threats and mitigations removed after the notes were posted, so that the written model can say so (FR-059). |
 
 ### A request that is repeated
@@ -66,6 +68,7 @@ session.
 | When a request arrives | The agent |
 |---|---|
 | Its `messageId` differs from `lastMessageId`, or it has none | Copies `session` and `repositories` to `sessionBefore`, sets `lastMessageId`, and advances `turn` when a session is in progress. |
+| Any request, when `lastMessageDone` is false | First puts `sessionBefore` back as `session` and `repositories`. The message before never finished, so nothing from it stays recorded (FR-063). Then one of the two rows below applies. |
 | Its `messageId` equals `lastMessageId` | Puts `sessionBefore` back as `session` and `repositories`, and does not advance `turn`. Whatever the first attempt recorded is undone, and this attempt records it once. |
 
 This covers a session that the first attempt started: `sessionBefore` then holds "no
@@ -326,6 +329,7 @@ The full interface is `contracts/agent-interface.md`. What changes from feature 
 | `conversationType` | request | New. `channel_thread` or `direct_message`. |
 | `addressed` | request | New. Whether the message mentions STRIDEr. |
 | `messageId` | request | New. Identifies the message, so that a repeated request is recognised. |
+| `threadEndsAt` | request | New. When a channel thread will stop being answered. |
 | `prompt` | request | Mentions of people are now names, not Slack identifiers, here and in thread context. |
 | `kind` `no_reply` | reply | New. The worker posts nothing. |
 | `documents` | reply | New. Documents for the worker to deliver as files. |

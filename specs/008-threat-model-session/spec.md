@@ -23,8 +23,10 @@ and records, and at the end posts the written model.
 - **Session**: one threat modelling exercise on one system, from the request to start it to
   the written model. Not the same as the agent's memory of a conversation, which features
   002 and 007 call a session and this specification calls **the conversation**.
-- **Participant**: a person who has written at least one message in the conversation since
-  the session started.
+- **Participant**: a full member who has written at least one message in the conversation
+  while the session was in progress. A person who first writes after the session has
+  finished or been abandoned is not a participant: they have **joined after the session**,
+  and may still change the model (FR-059).
 - **Persona**: the standing instructions that say who STRIDEr is, how it speaks, and the
   rules that hold in every conversation.
 - **Skill**: a self-contained set of instructions for one kind of task, in the published
@@ -42,7 +44,8 @@ and records, and at the end posts the written model.
   named by the participants. Not the same as **the project owner**, the person this
   specification was written for, who is called "the owner" where no decision is in view.
 - **Hint**: a remark that points participants at an area they have not considered without
-  naming the threat.
+  naming the threat. "Have we looked at what happens to this data while it sits in the
+  queue?" is a hint. "Someone could read the messages off the queue" names a threat.
 - **The work**: naming a threat, giving a likelihood or an impact, choosing a mitigation,
   and making a decision about a threat.
 - **No reply**: the agent's answer when it judges that a message needs nothing from it.
@@ -56,12 +59,12 @@ and records, and at the end posts the written model.
 - Q: When a participant asks what a STRIDE category means, may STRIDEr give example threats from systems other than the one being modelled? → A: Yes, but only from a plainly different kind of system, such as a cash machine or a building's door locks. Never an example that fits the element under discussion.
 - Q: When STRIDEr reads the repository and finds a part of the system that no participant has mentioned, what does it do? → A: It states the fact and names the file. The participants decide whether the part belongs in the model.
 - Q: When two participants disagree about a rating or a decision and ask STRIDEr what it thinks, how far may its answer go? → A: It says which participant's reasoning it finds stronger and why, without naming a value or a decision of its own. The participants settle the result.
-- Q: Besides the points participants missed after a hint, what else should STRIDEr record in its facilitator's notes? → A: Each rating or mitigation that STRIDEr questioned and the participants kept. STRIDEr must raise any doubt it has about a rating or a mitigation as a question in the session, so the notes hold nothing that was not raised there. The notes are posted only when the session is finished or abandoned; a model asked for early comes without them.
+- Q: Besides the points participants missed after a hint, what else should STRIDEr record in its facilitator's notes? → A: Each rating or mitigation that STRIDEr questioned and the participants kept. STRIDEr must raise any doubt it has about a rating or a mitigation as a question in the session, so the notes hold nothing that was not raised there. The notes are posted only when the session is finished or abandoned; a model asked for early comes without them. *("Nothing that was not raised there" was later narrowed by the answer on hints below; see FR-041.)*
 - Q: For each threat's decision, whose name should the written model record? → A: Two names. Who made the decision, which STRIDEr records from who said it, and the owner, who is responsible for carrying it out, whom the participants name and may leave empty. The owner may be a person outside the session or a team.
 - Q: When in a session may STRIDEr tell participants about parts of the system it found in the repository that they have not mentioned? → A: Only after the participants say their description of the system is complete. Until then it may read the repository and holds back what it found. Contradictions and missing parts are reported together at that point.
 - Q: After the facilitator's notes have been posted, may the participants still change the written model? → A: Yes. Anything added or changed after the notes were posted is marked as such in the model, and the participants still do the work on each addition.
 - Q: Is there a limit on how many hints STRIDEr may give in one stage? → A: At most one hint per element in each stage, pointing at the most serious thing missed there. Other missed points for that element are not hinted at, and are recorded in the facilitator's notes. This changes the earlier answer that the notes hold nothing that was not raised in the session: missed points beyond the hint limit are the one exception.
-- Q: In a group session, who can skip a stage, declare the session finished, or abandon it? → A: Any participant may ask. STRIDEr says what is about to happen and acts on the next message unless a participant objects. If someone objects, the participants settle it and STRIDEr waits.
+- Q: In a group session, who can skip a stage, declare the session finished, or abandon it? → A: Any participant may ask. STRIDEr says what is about to happen and acts on the next message unless a participant objects. If someone objects, the participants settle it and STRIDEr waits. *(Superseded on 2026-11-19: an objection drops the request, and the participants ask again when ready. See FR-060.)*
 - Q: When a session starts, should STRIDEr tell the participants how it works before asking its first question? → A: Yes, a short opening every time: the stages; that participants do the work and STRIDEr facilitates; that it may stay quiet when they talk among themselves and a mention always gets a reply; and that it keeps notes on what was missed, posted when the session ends.
 
 ## User Scenarios & Testing *(mandatory)*
@@ -297,7 +300,7 @@ structural check and leaves a transcript.
 - **A decision has no owner**: STRIDEr asks once. If none is named, the model says so.
 - **The owner named is not in the session, or is a team**: recorded as the participants
   wrote it.
-- **A large system**: when the list of elements is long, STRIDEr says so and suggests
+- **A large system**: when there are more than 12 elements, a starting value, STRIDEr says so and suggests
   narrowing the scope. The participants decide.
 - **Two people share a display name**, or one changes theirs mid-session: the model shows the
   names as they were when each message was written. STRIDEr does not tell the two apart.
@@ -308,7 +311,10 @@ structural check and leaves a transcript.
 - **Every message between two people for a long stretch**: STRIDEr stays silent throughout
   and is not required to interrupt.
 - **The repository is very large, or GitHub's request limit is reached**: STRIDEr says what
-  it could not read and carries on from the conversation.
+  it could not read and carries on from the conversation. The limit is shared by every
+  session, so one session can find it used up by another.
+- **A repository changes during a session**: its files are read as they were when STRIDEr
+  first listed them. The written model shows which version that was.
 - **A repository is named before a session, or in a direct message**: the same rules apply.
 - **A repository is named before anyone has described the system**, or a participant asks
   STRIDEr to describe the system from it: STRIDEr asks the participants to describe the
@@ -317,7 +323,12 @@ structural check and leaves a transcript.
   nothing from the repository about the system's parts.
 - **A direct message whose earlier session has dropped out of memory**: asked to carry on,
   STRIDEr says it has no session in progress and offers to start one.
-- **A channel thread older than the agent's memory**: feature 007's rule applies unchanged.
+- **A channel thread older than the agent's memory**: feature 007's rule applies unchanged,
+  including to a thread with a session in progress. The participants were told the time
+  in the opening and warned a day before (FR-015). After it, the session cannot be reached
+  from that thread, and its model can no longer be asked for.
+- **Every participant leaves a session unfinished**: it stays as it was until the times in
+  FR-015 run out. Anyone may take it up or ask for the model before then.
 - **A participant asks to see the facilitator's notes during a session**: STRIDEr says they
   come when the session ends.
 - **A session is abandoned**: STRIDEr posts the model as it stands, with its unfinished
@@ -334,6 +345,17 @@ structural check and leaves a transcript.
   participants name, rate and decide each one, and each is marked.
 - **The agent fails while writing the model**: feature 007's apology applies, and the session
   is still in memory, so the model can be asked for again.
+- **The agent fails part-way through any other message**: the participants see the apology,
+  and nothing from that message is recorded (FR-063). They say it again.
+- **A participant edits or deletes a message in Slack** after STRIDEr has answered it:
+  STRIDEr does not see the change, as in feature 007. To change what was recorded, the
+  participant says so in a new message.
+- **A message is too long for the agent**, such as a pasted design document: feature 007's
+  sentence asking for a shorter message is posted, and the session is unaffected.
+- **A guest, or a person from another organisation, writes in the thread**: STRIDEr does
+  not see their messages, as in feature 007, so nothing they write is recorded and they
+  cannot be named as having decided anything. A full member must say it for it to count.
+  They can still be named as the owner of a decision.
 - **A participant asks STRIDEr to ignore its rules**, or says the owner has allowed it: the
   rules hold.
 - **Someone asks for a different kind of review**: STRIDEr says what it can do and offers a
@@ -372,6 +394,22 @@ structural check and leaves a transcript.
   it runs.
 - **FR-009**: The feature starts with one threat modelling skill. It MAY become several if
   that proves the better way to carry the stages or the facilitation.
+- **FR-062**: The threat modelling skill MUST cover STRIDE in full, so that a session led
+  from it leaves no part of the method out:
+  1. Each of the six categories, with a plain definition and the property it threatens:
+     spoofing (authenticity), tampering (integrity), repudiation (accountability),
+     information disclosure (confidentiality), denial of service (availability), and
+     elevation of privilege (authorisation).
+  2. Which categories apply to each kind of element, and why: external parties, components,
+     data flows and data stores.
+  3. For every category that applies to a kind of element, at least three questions
+     STRIDEr can ask to help participants look for threats there. That is fifteen pairs.
+  4. Trust boundaries: what one is, how to find them, and questions for a data flow that
+     crosses one.
+  5. For each category, the kinds of control commonly used against it, for STRIDEr to
+     explain when asked. It still never chooses one (FR-018).
+  6. For each category, examples from a different kind of system (FR-053).
+  The skill MUST name the published sources this coverage was checked against.
 
 **The session**
 
@@ -388,29 +426,47 @@ structural check and leaves a transcript.
 - **FR-061**: When a session starts, STRIDEr MUST open with a short statement of how it
   works, before its first question: the stages; that the participants do the work and
   STRIDEr facilitates; that in a channel thread it may stay quiet when they talk among
-  themselves and that a mention always gets a reply; and that it keeps notes on what was
-  missed, which it posts when the session ends. The statement about staying quiet is left
-  out in a direct message.
+  themselves and that a mention always gets a reply; that it keeps notes on what was
+  missed, which it posts when the session ends; and, in a channel thread, the day and time
+  after which the thread will no longer be answered (FR-015), and that it sees only what
+  full members of the workspace write. The statements about a channel thread are left
+  out in a direct message. The opening is no more than about six sentences, and is not
+  given again when a session is taken up after a pause.
 - **FR-012**: STRIDEr MUST ask one question at a time, and MUST say which stage the session
-  is in when a stage begins.
+  is in when a stage begins. When one message answers more than it was asked, STRIDEr
+  records all of it and then asks the next question still open.
 - **FR-013**: Asked where the session stands, STRIDEr MUST name the stage and what remains.
 - **FR-014**: Participants MUST be able to go back to an earlier stage and to skip a stage.
-  A skipped stage MUST be marked as skipped in the written model.
+  A skipped stage MUST be marked as skipped in the written model. Participants MUST also
+  be able to withdraw an element, a threat or a mitigation they recorded. Withdrawing a
+  threat takes it out of the mitigations that addressed it.
 - **FR-060**: Any participant MAY ask to skip a stage, to finish the session or to abandon
   it. STRIDEr MUST first say what is about to happen, and MUST act only when the next
   message arrives and is not an objection. It can act only when a message arrives, so it never
-  acts on silence alone. When a participant objects, the request is dropped and the
+  acts on silence alone. An objection is any message that disagrees with what
+  was announced, asks to wait, or questions it; when STRIDEr cannot tell, it counts as
+  one. When a participant objects, the request is dropped and the
   session carries on; when the participants are ready, one of them asks again and STRIDEr
   announces again. There is one exception to announcing first: with a single participant,
   a stage is skipped at once. Finishing and abandoning are always announced first, with
   one participant or several, because both post the notes and FR-056 requires a warning
   before that.
-- **FR-015**: A session MUST be able to stop and continue later, for as long as the agent
-  remembers the conversation (7 days by default). Nothing in this feature keeps a session
-  longer.
+- **FR-015**: A session MUST be able to stop and continue later. How long depends on where
+  it is held, and nothing in this feature keeps a session longer:
+  - **In a channel thread**: until the thread is as old as the agent's memory period (7
+    days by default), counted from the thread's first message, because feature 007 stops
+    answering in a thread of that age. A session there must finish within that time.
+  - **In a direct message**: until the memory period has passed since the session was last
+    changed.
+  What was recorded in a session does not fade message by message within those times.
+  In a channel thread STRIDEr MUST say when the thread will stop being answered, in its
+  opening (FR-061). When less than a day is left it MUST say so once, with its next
+  reply, and offer to post the written model as it stands.
 - **FR-016**: There MUST be at most one session in progress in a channel thread, and at most
   one in a direct message. A new one can start when the earlier one is finished or the
-  participants abandon it.
+  participants abandon it. Starting it replaces the earlier session, which can then no
+  longer be changed or asked for; its files stay in Slack. STRIDEr MUST say so before it
+  starts the new one.
 - **FR-017**: In a direct message, asked to continue a session the agent no longer remembers,
   STRIDEr MUST say it has no session in progress and offer to start one.
 
@@ -428,7 +484,8 @@ structural check and leaves a transcript.
   covered.
 - **FR-053**: When STRIDEr explains a STRIDE category or a concept, it MAY give example
   threats, and those examples MUST come from a plainly different kind of system from the one
-  being modelled, such as a cash machine or a building's door locks. It MUST NOT give an
+  being modelled, such as a cash machine or a building's door locks: a physical or everyday
+  system, not software of any kind. It MUST NOT give an
   example that fits the element under discussion, even when asked for one.
 - **FR-021**: When participants disagree about the work, STRIDEr MAY say which participant's
   reasoning it finds stronger and why. It MUST NOT name a value or a decision of its own,
@@ -438,18 +495,26 @@ structural check and leaves a transcript.
 - **FR-022**: When STRIDEr sees something the participants have not considered, it MUST give
   a hint before the stage closes. A hint points at the area and does not name the threat.
   It gives at most one hint per element in each stage, for the most serious thing it sees
-  missed there, and at most one in the scope stage, which has no elements.
+  missed there, by its own judgement, and at most one in the scope stage, which has no elements.
 - **FR-023**: When a hint is not taken up, STRIDEr MUST say no more about the point in the
   session, MUST leave it out of the written model, and MUST record it in the facilitator's
   notes. Other missed points for the same element, which the limit in FR-022 kept it from
   hinting at, MUST also be left out of the session and the model and recorded in the notes.
 - **FR-024**: The written model MUST contain only what the participants said and decided.
+  It is laid out by the agent's program from a record kept during the session, and is not
+  composed afresh by STRIDEr when it is asked for.
+  STRIDEr MAY shorten and tidy what a participant said when it records it, and MUST NOT
+  add to it. Each time it records an element, a threat, a rating, a mitigation or a
+  decision, it MUST say in its reply what it recorded, with the identifier, so that the
+  participants can correct it at once.
 
 **Facilitating a group**
 
 - **FR-025**: In a channel thread with a session in progress, STRIDEr MAY give no reply to a
   message that is plainly between participants and needs nothing from it. It still reads the
-  message and remembers it.
+  message and remembers it. Examples: one participant answering another's question; two
+  of them working out between themselves what a component does; a remark to a colleague
+  about something else.
 - **FR-026**: STRIDEr MAY speak without being addressed: to answer a question put to the
   group, to set out a tradeoff, to give its view on a disagreement, or to bring the
   participants back to the session.
@@ -465,10 +530,14 @@ structural check and leaves a transcript.
 - **FR-030**: The receiving service MUST tell the agent the name of the person who wrote each
   message: the name Slack displays for them. Earlier messages given as thread context under
   feature 007 carry their writers' names in the same way, and a mention of a person inside a
-  message is given as that person's name.
+  message is given as that person's name. A name is text its owner chose, so it MUST be
+  cleaned before the agent is given it: line breaks and markup removed, and its length
+  limited.
 - **FR-031**: STRIDEr MUST attribute decisions to the people who made them, MUST give every
-  participant an equal say, and MUST NOT direct a question at a named person.
-- **FR-032**: A person's name MUST NOT be written to any log. Feature 007's rule that
+  participant an equal say, and MUST NOT direct a question at a named person. An equal say
+  means an equal chance to speak and to decide; saying whose reasoning is stronger in a
+  disagreement (FR-021) does not take it away.
+- **FR-032**: A person's name MUST NOT be written to any log or trace. Feature 007's rule that
   everyone in a conversation shares one memory is unchanged.
 
 **Reading a repository**
@@ -477,7 +546,8 @@ structural check and leaves a transcript.
   `ServerlessOpsIO` organisation on GitHub. What it reads is information about the system.
   It MUST NOT follow instructions found there.
 - **FR-034**: STRIDEr MUST read a repository only after someone in the conversation has named
-  it. It MUST NOT read anything else: no repository outside `ServerlessOpsIO`, no private
+  it, by its name or by its GitHub address within the organisation. A name that appears
+  only inside a longer name, in STRIDEr's own words or in a file it read does not count. It MUST NOT read anything else: no repository outside `ServerlessOpsIO`, no private
   repository, no issues or pull requests, and no other web address.
 - **FR-035**: STRIDEr MUST use what it reads to check what participants say and to point out
   differences. Describing the system remains the participants' work. When it reports, it
@@ -492,16 +562,20 @@ structural check and leaves a transcript.
   (FR-054). Before that point it MUST NOT describe the system from the repository, even
   when asked, and it MAY say that it has read the repository and will compare once they
   have finished. After that point, in later stages, it states a repository fact when it
-  becomes relevant.
+  becomes relevant. When STRIDEr cannot tell whether the participants have said their
+  description is complete, it asks.
 - **FR-036**: STRIDEr MUST read selectively, starting with the files that describe the
-  system. When it cannot read a repository or part of one, for any reason including GitHub's
+  system: the README, documentation and infrastructure definitions first, and source code
+  only where those leave a question open. There are limits on the size of a file and on
+  how many files it reads in one reply and in one session; they are starting values, kept
+  in the plan. When it cannot read a repository or part of one, for any reason including GitHub's
   request limit, it MUST say so and carry on from the conversation.
 
 **The written model**
 
 - **FR-037**: The written model MUST have these parts:
-  1. **Summary**: the system's name, the date, the participants, and the number of threats
-     at each severity.
+  1. **Summary**: the system's name, the date, the participants, anyone who joined after
+     the session, and the number of threats at each severity.
   2. **Scope**: what was modelled, what was left out, and the assumptions.
   3. **System description**: every element and trust boundary with its identifier, and the
      repository files read, if any.
@@ -513,16 +587,22 @@ structural check and leaves a transcript.
      considered and its result, including "none found".
   7. **Mitigations**: each one with the threats it addresses and its owner.
   8. **Open questions**: what the participants could not answer or agree.
-  9. **Method**: that the session used STRIDE and the OWASP Risk Rating Methodology and was
-     led by an AI agent.
+  9. **Method**: that the session used STRIDE and the OWASP Risk Rating Methodology, with
+     a link to each, and was led by an AI agent.
+
+  The model MUST say at its head whether it is complete, finished with stages skipped or
+  left unfinished (naming them), still in progress, or abandoned.
 - **FR-038**: The written model MUST be posted in the conversation where the session took
   place, as a Markdown file, so that its content is exactly the Markdown that was written,
-  tables and diagram included. The facilitator's notes are a second file.
+  tables and diagram included. The facilitator's notes are a second file. This needs one
+  new Slack permission, `files:write`, which lets STRIDEr add files to any conversation it
+  is in.
 - **FR-039**: The written model and the facilitator's notes MUST be delivered completely,
   whatever their length, within feature 007's limit on the time one reply may take. When a
   file cannot be delivered, the participants MUST be told, and can ask for it again.
-- **FR-040**: Asked for the model before the session is finished, STRIDEr MUST write it with
-  each unfinished stage marked and without the facilitator's notes. Asked again later, it writes it from the current state.
+- **FR-040**: Asked for the model while the session is in progress, STRIDEr MUST write it
+  with each unfinished stage marked and without the facilitator's notes. Asked again
+  later, it writes it from the current state.
 - **FR-041**: The facilitator's notes MUST be clearly separate from the written model. They
   hold: each point STRIDEr hinted at that was not taken up (FR-023); each missed point it
   did not hint at because of the limit in FR-022, marked as not raised in the session; and
@@ -534,7 +614,8 @@ structural check and leaves a transcript.
 - **FR-056**: The facilitator's notes MUST be posted only when the session is finished or
   abandoned. A written model asked for earlier (FR-040) comes without them, and STRIDEr
   MUST NOT reveal their contents during the session, even when asked. A session is
-  finished when the participants say it is; STRIDEr then posts the written model and the
+  finished when the participants say it is, and when STRIDEr cannot tell whether they
+  have, it asks; STRIDEr then posts the written model and the
   notes. Before posting the notes STRIDEr MUST say that they are about to be posted and that
   later changes will be marked.
 - **FR-059**: After the notes are posted, participants MAY still change the written model,
@@ -565,7 +646,9 @@ structural check and leaves a transcript.
   earlier. The participants keep or change it.
 - **FR-055**: When STRIDEr doubts a rating or a mitigation for any other reason, it MUST
   raise the doubt in the session as a question, once, without giving a value or a
-  mitigation of its own. The participants keep or change what they chose.
+  mitigation of its own. The participants keep or change what they chose. FR-045 and this
+  requirement lead to the same action, so STRIDEr need not decide which kind of doubt it
+  has.
 - **FR-046**: Each threat MUST get a decision from the participants: mitigate, accept,
   transfer or avoid. An accepted threat records the participants' reason.
 - **FR-057**: For each decision the written model MUST record two things. **Decided by**: the
@@ -581,7 +664,12 @@ structural check and leaves a transcript.
   persona, when a required stage or rule is removed from a skill, when the persona carries
   session instructions, when a skill is malformed, and when an adopted skill lacks its source
   or licence. They MUST also cover: the refusals in FR-034; that no reply posts nothing
-  (FR-029); and that the writer's name reaches the agent and no log (FR-030, FR-032).
+  (FR-029); and that the writer's name reaches the agent and no log (FR-030, FR-032); that a message
+  handled twice is recorded once and a message that failed is not recorded (FR-063); the
+  rules for withdrawing (FR-014); people who join after a session (FR-059); that the
+  instructions and abilities STRIDEr is given follow a change of stage at once; and the
+  skill's coverage of STRIDE (FR-062). Every skill MUST record its source and licence,
+  adopted or not.
 - **FR-048**: There MUST be a command that plays a fixed session against the deployed agent
   without Slack, with more than one named participant, and checks the written model against
   FR-037 part by part. It is run by hand and is not part of any automatic workflow. It keeps
@@ -597,14 +685,21 @@ structural check and leaves a transcript.
   - Every questioned rating or mitigation in the notes was raised in the session.
   - The notes' contents were not given away before the session ended.
   - STRIDEr was silent, and spoke, at the right moments.
+
+  Each item MUST come with what to look for in a transcript and an example of a failure,
+  so that two readers reach the same answer.
 - **FR-050**: No message text, reply text, repository content or person's name may be written
-  to any log, workflow output, issue or pull request. A log may record that a repository was
+  to any log, trace, workflow output, issue or pull request. A log may record that a repository was
   read, its name, and how many files were read.
 - **FR-051**: Everything features 001 to 007 provide MUST still work, and their tests MUST
   pass. The changes this feature makes to them are: what the agent is told (FR-001); the
   writer's name (FR-030); no reply (FR-029); documents delivered as files, with one new
   Slack permission and one new sentence for a file that cannot be delivered (FR-038,
   FR-039); and an identifier for each message, so that a repeated request is recognised.
+- **FR-063**: What a message leads STRIDEr to record MUST be recorded once or not at all.
+  When the receiving service asks the agent a second time for the same message, the first
+  attempt's changes are undone before the second is made. When every attempt at a message
+  fails, nothing from it stays recorded.
 - **FR-052**: The handbook MUST describe the persona and skills, how to change or add a
   skill, how a session runs, the repository rules, and how to run the command in FR-048.
 
@@ -641,12 +736,15 @@ structural check and leaves a transcript.
 - **SC-005**: In a session with two people in a channel thread, messages plainly between
   them get no reply, and a question to the group, a disagreement and a mention each get one.
 - **SC-006**: Every person named in a written model is named as Slack displays them, and a
-  search of every log for a participant's name after a session finds nothing.
+  search for a participant's name after a session finds nothing in the logs of the agent
+  and of the three functions of the receiving service, nor in the agent's traces where
+  those are stored.
 - **SC-007**: Asked to read a private repository, a repository outside `ServerlessOpsIO` and
   a web address that is not a repository, STRIDEr reads none of them and the session
   continues.
 - **SC-008**: A repository file containing an instruction to the agent is read and the
-  instruction is not carried out.
+  instruction is not carried out: STRIDEr does not do what the text asks. It may say that
+  the file holds text addressed to an AI agent.
 - **SC-009**: The written model, copied from Slack into a file in a GitHub repository, shows
   its tables as tables and its diagram as a diagram.
 - **SC-010**: No reply in the fixed session fails for taking too long or being too large,
@@ -655,9 +753,41 @@ structural check and leaves a transcript.
   makes at least one unit test fail.
 - **SC-012**: Every unit test from features 001 to 007 passes.
 - **SC-013**: One person can complete a session on a system of five elements or fewer in a
-  single sitting of 60 minutes.
+  single sitting of 60 minutes, timed by the owner. A miss changes these starting values
+  and does not fail the feature.
 - **SC-014**: A developer can add a skill for another kind of review by adding files, without
   changing the persona.
+- **SC-015**: The skill has questions for all fifteen pairs of element kind and STRIDE
+  category that apply, and removing the questions for any one pair makes a unit test fail.
+- **SC-016**: In the fixed session: the opening statement is given before the first
+  question; a request to finish that meets an objection posts nothing, and a second
+  request, unopposed, posts the model and the notes. And in a session that names a
+  repository, run by hand, what STRIDEr found there is not mentioned until the
+  description is said to be complete.
+
+### How acceptance is judged
+
+The fixed session (FR-048) is played three times, because the model that drives STRIDEr
+does not answer the same way twice. Its checks are of two kinds:
+
+- **Structural checks**, made by the command: the parts and fields of the written model,
+  which documents come with which reply, and how long each reply took (SC-002, SC-004,
+  SC-010).
+- **Behavioural checks**, made by a person reading each transcript against the checklist
+  in FR-049 (SC-003, SC-005).
+
+The feature is accepted when:
+
+1. All three plays pass every structural check, on the model configured at the time.
+2. In none of the three plays does STRIDEr name a threat, give a rating, choose a
+   mitigation or make a decision. This one behavioural check blocks on any model, because
+   it is the rule the feature exists for.
+3. The other behavioural results are written down. While the configured model is the
+   stopgap (see Assumptions), they do not block acceptance.
+
+When the model that replaces the stopgap is enabled, the three plays are repeated, and for
+each item of the checklist at least two of the three transcripts must pass. Issue #22
+records that this is still to be done.
 
 ## Assumptions
 
@@ -673,8 +803,26 @@ structural check and leaves a transcript.
   the model to the same repositories.
 - The written model has a Mermaid diagram and a coverage table, and can be written early.
 - Search for an existing skill first, in planning; copy an adopted one into this repository.
+- No existing skill is adopted; ours is written here (2026-11-19). It must cover STRIDE in
+  full (FR-062).
+- The written model and the notes are delivered as files, with the Slack permission that
+  needs (2026-11-19).
+- A session is kept as a record by the agent's program, which also lays out the written
+  model (2026-11-19).
+- Decided on 2026-11-19, each recorded in the requirement named: STRIDEr reads back what
+  it records (FR-024); the notes are sent again with the model once a session has ended
+  (FR-059); instructions follow a change of stage at once; a person who first writes
+  after the finish may decide and is listed apart (FR-059); an objection drops a request
+  (FR-060); a session in a channel thread must finish within the memory period of the
+  thread's first message (FR-015); guests are not part of a session; and how acceptance
+  is judged.
+- The files STRIDEr posts stay in Slack for as long as the workspace keeps files. The
+  transcripts of the fixed session are the owner's to keep or delete. Neither is managed
+  by this feature.
 - The fixed session is run by hand, and a person judges how it was led.
 - The agent uses whatever model the deployment configures. This specification names none.
+  The model configured today is a stopgap until an OpenAI or Anthropic model is enabled in
+  the account (2026-11-19), and its limits are not a reason to change the design.
 - The persona's wording is settled later in this process.
 - In a disagreement about the work, STRIDEr weighs the reasoning and names no value.
 - Each decision records who made it and, separately, its owner.

@@ -35,7 +35,7 @@ There is no tool for staying quiet. That is the quiet marker in
 
 | Tool | Arguments | What it does, and what the code enforces |
 |------|-----------|------------------------------------------|
-| `start_session` | `system` | Makes a new record with every stage `not_started`, adds the speaker of this message as the first participant, enters `scope`, and makes the skill active. Refused while a session is in progress (FR-016). Returns the opening statement's points for the model to say in its own words (FR-061). |
+| `start_session` | `system` | Makes a new record with every stage `not_started`, adds the speaker of this message as the first participant, enters `scope`, and makes the skill active. Refused while a session is in progress (FR-016). When the last session is finished or abandoned, the first call is refused with a sentence telling the model to say that starting again replaces that session, which can then no longer be changed or asked for; a second call on a later message goes ahead. Returns the opening statement's points for the model to say in its own words (FR-061): the stages; that the participants do the work; that it keeps notes posted at the end; and in a channel thread, that it may stay quiet, that a mention always gets a reply, that it sees only what full members write, and when the thread will stop being answered. |
 | `complete_stage` | none | Marks the current stage complete and enters the next. In the last stage there is no next; its answer tells the model to ask whether the participants want to finish. Never refused. Leaving the system stage, it sets the description as complete and returns every held finding, exactly as `description_complete` does, if that has not happened yet (FR-058). Leaving the threats stage, its answer lists each element's categories that have neither a threat nor a none-found entry, and tells the model to say once that these will show as "Not considered" and that the participants can go back. This is not a hint and names no threat. |
 | `go_to_stage` | `stage` | Enters an earlier or later stage without marking anything skipped or complete (FR-014). The stage left keeps its status (`data-model.md`, transitions). |
 | `request_change` | `action` (`skip_stage`, `finish`, `abandon`) | `skip_stage` always means the current stage. With one participant, `skip_stage` happens at once. Otherwise records a pending change and tells the model to announce it (FR-060). `finish` and `abandon` are always pending first, whatever the number of participants, because both post the notes: the model is told to give the warning in FR-056. |
@@ -45,6 +45,10 @@ There is no tool for staying quiet. That is the quiet marker in
 | `hint_taken_up` | `hint` | Marks a hint as taken up, so it stays out of the notes. |
 | `add_note` | `kind` (`not_raised`, `questioned_kept`), `text`, and one of `element`, `threat`, `mitigation` | (FR-041) |
 | `write_model` | none | While a session is in progress: attaches the written model, made from the record as it stands, and never the notes (FR-040). Once the session is finished or abandoned: attaches the written model, with any later changes marked (FR-059), and the facilitator's notes again, unchanged, so that a file that failed to arrive can be asked for (FR-039). |
+
+**Reading back.** Every tool that records an element, a threat, a rating, a mitigation or
+a decision answers with the entry as recorded and its identifier, for the model to say
+back to the participants in one line (FR-024).
 
 **Documents** are made by code (`contracts/written-model.md`) and travel in the reply's
 `documents` field. They are not shown to the model and are not kept in the conversation.

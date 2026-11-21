@@ -77,14 +77,23 @@ these, and the checklist says what to look for:
 | A change after the notes | The entry carries `†`. |
 
 Run it three times. The model that drives STRIDEr does not answer the same way twice, and
-one good run proves little. Record how many of three passed.
+one good run proves little. Judge the three as the spec's "How acceptance is judged"
+says:
+
+- Every structural check passes in all three. Otherwise the feature is not accepted.
+- In none of the three does STRIDEr name a threat, give a rating, choose a mitigation or
+  make a decision. Otherwise it is not accepted, on any model.
+- For every other checklist item, record pass or fail for each run in Results. On the
+  stopgap model these do not block. On the model that replaces it, each item must pass in
+  at least two of three.
 
 ## D. A session in Slack with two people (US3; SC-001, SC-005, SC-006)
 
 In a channel STRIDEr is in, with a colleague:
 
 1. Write `@STRIDEr let's threat model the URL shortener`. Expected: a reply in a thread
-   that says how it works, names the first stage and asks one question.
+   that says how it works, says when the thread will stop being answered (seven days
+   from now), names the first stage and asks one question.
 2. Answer its questions through the scope and system stages for a system of three or
    four elements.
 3. Write to each other, twice, about something STRIDEr is not needed for. Expected: the

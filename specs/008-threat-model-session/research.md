@@ -283,6 +283,9 @@ categories by element, and OWASP for the rating method.
   code can check (`contracts/agent-interface.md`). Each turn is written to stand alone,
   whatever STRIDEr asked before it.
 - **It is run three times** for acceptance, because one run of a model proves little.
+  What must pass is in the spec, "How acceptance is judged" (owner, 2026-11-19):
+  structure always; the rule against doing the work always; the rest of the behaviour
+  recorded on the stopgap model and held to two of three on its replacement.
 
 ## Open items
 
