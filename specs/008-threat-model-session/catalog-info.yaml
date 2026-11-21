@@ -1,0 +1,28 @@
+apiVersion: backstage.io/v1alpha1
+kind: Resource
+metadata:
+  name: engineering-agents-spec-008
+  title: "008 - STRIDEr leads a threat modelling session"
+  description: "As a developer my Slack app can lead a threat model session"
+  annotations:
+    github.com/project-slug: ServerlessOpsIO/engineering-agents
+    serverlessops.io/spec-dir: specs/008-threat-model-session
+    serverlessops.io/spec-number: "008"
+    serverlessops.io/spec-type: "feature"
+    backstage.io/source-location: url:https://github.com/ServerlessOpsIO/engineering-agents/tree/main/specs/008-threat-model-session/
+    backstage.io/techdocs-ref: dir:.
+  tags:
+    - speckit
+  links:
+    - url: https://github.com/ServerlessOpsIO/engineering-agents/blob/main/specs/008-threat-model-session/spec.md
+      title: Specification
+      icon: docs
+    - url: https://github.com/ServerlessOpsIO/engineering-agents/blob/main/specs/008-threat-model-session/plan.md
+      title: Implementation plan
+      icon: docs
+spec:
+  type: doc-spec
+  owner: group:00gjdgxs1ur6lsu
+  system: slack-ai-agent
+  dependsOn:
+    - component:default/engineering-agents
