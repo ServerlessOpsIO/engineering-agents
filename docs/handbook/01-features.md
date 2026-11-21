@@ -3,7 +3,15 @@
 ## The agent
 
 - A Python 3.14 program in `src/agent/` using the Strands Agents SDK.
-- A system prompt in `src/agent/system_prompt.md`, set from the Backstage form.
+- A persona in `src/agent/persona.md`, which says who the agent is and the rules that always
+  hold, and skills in `src/agent/skills/`, which say how to carry out a task. See
+  [Threat modelling sessions](10-threat-model-sessions.md).
+- One skill: leading a threat modelling session with STRIDE. The participants do the
+  threat modelling; the agent asks, explains and records, and posts the written model.
+- A session record kept in the agent's state, changed through 25 tools, from which a
+  program lays out the written model.
+- Reading files from public repositories of one GitHub organisation, when a person names
+  one.
 - A model on Amazon Bedrock, chosen by the `ModelId` deployment parameter. It is set to
   `us.openai.gpt-6-luna`, the United States inference profile for OpenAI GPT-6 Luna, in
   `cfn-parameters.json`.

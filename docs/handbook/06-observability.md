@@ -12,15 +12,20 @@ The agent writes one JSON record per request:
 | --- | --- |
 | `requestId` | Correlation identifier. Also returned to the caller. |
 | `sessionId` | The caller's `runtimeSessionId`. |
-| `kind` | `answer`, `input_rejection` or `error`. |
+| `kind` | `answer`, `no_reply`, `input_rejection` or `error`. |
 | `durationMs` | Time spent inside the agent. |
 | `promptChars` | Length only. Prompt and reply text are never logged. |
 | `modelId` | Absent for `input_rejection`. |
 | `inputTokens`, `outputTokens` | When the model reports them. |
 | `errorType` | Exception class name, for `error` only. A stack trace follows in a separate log line. |
+| `skill`, `stage` | The skill in use and the stage of the session, when there is one. |
+| `toolCalls` | How many tools the model called. Not which, and not with what. |
+| `documents` | How many documents were attached to the reply. |
+| `repository`, `repositoryFilesRead` | When a repository was read: its name, and how many files. No path. |
 
 Keep prompt and reply text out of the logs when you add fields: whatever reaches a log group
-may be forwarded to other systems.
+may be forwarded to other systems. The same goes for people's names, what a tool was given
+or answered, the paths and content of repository files, and documents.
 
 ## Find a request
 
@@ -49,6 +54,22 @@ The container runs the agent under `opentelemetry-instrument` from the AWS OpenT
 distribution, and Strands emits spans for model calls and tool use. Traces are delivered to
 AWS X-Ray once CloudWatch Transaction Search is enabled in the account and region (see
 [deployment prerequisites](03-configuration.md#deployment-prerequisites)).
+
+### What people write is kept out of traces
+
+Left alone, Strands puts the content of every model call and tool call on its spans:
+messages, replies, the system prompt, tool arguments and tool results. Two settings on the
+runtime in `template.yaml` stop that:
+
+| Setting | Value | What it does |
+| --- | --- | --- |
+| `OTEL_SEMCONV_STABILITY_OPT_IN` | `gen_ai_unredacted_attributes=` | Strands writes `[REDACTED]` in place of each of those. The empty list after `=` means nothing is let through. |
+| `OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT` | `false` | The same switch for the instrumentor that traces the call to Bedrock itself. |
+
+**Both must be in place before Transaction Search is turned on.** A look on 2026-11-19
+found no traces being stored for this agent, because it was off. To check after turning it
+on: send the agent a message containing an unusual word, open that request's trace, and
+confirm the word is nowhere in it.
 
 ## Metrics
 

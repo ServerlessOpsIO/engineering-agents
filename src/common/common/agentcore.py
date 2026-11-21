@@ -8,8 +8,8 @@ Nothing in this module logs. It handles prompts and replies.
 
 import json
 import os
-from dataclasses import dataclass
-from typing import Any, Optional
+from dataclasses import dataclass, field
+from typing import Any, Dict, List, Optional
 
 import boto3
 from botocore.config import Config
@@ -21,6 +21,11 @@ CONNECT_SECONDS = 5
 
 KIND_ANSWER = 'answer'
 KIND_INPUT_REJECTION = 'input_rejection'
+# The agent judged that the message needed nothing from it. Nothing is posted.
+KIND_NO_REPLY = 'no_reply'
+
+CHANNEL_THREAD = 'channel_thread'
+DIRECT_MESSAGE = 'direct_message'
 
 _client: Optional[Any] = None
 
@@ -35,6 +40,8 @@ class AgentReply:
     kind: str
     text: str
     request_id: Optional[str]
+    # Documents to deliver as files: each has a filename, a title and its Markdown.
+    documents: List[Dict[str, str]] = field(default_factory=list)
 
 
 def client() -> Any:
@@ -51,8 +58,38 @@ def client() -> Any:
     return _client
 
 
-def ask(session_id: str, prompt: str, slack_user_id: str) -> AgentReply:
+def _documents(body: Dict[str, Any]) -> List[Dict[str, str]]:
+    '''Return the documents in a reply, keeping only those that are whole.'''
+    documents = body.get('documents')
+    if not isinstance(documents, list):
+        return []
+    return [
+        {key: document[key] for key in ('filename', 'title', 'markdown')}
+        for document in documents
+        if isinstance(document, dict)
+        and all(isinstance(document.get(key), str) and document[key]
+                for key in ('filename', 'title', 'markdown'))
+    ]
+
+
+def ask(
+    session_id: str,
+    prompt: str,
+    slack_user_id: str,
+    *,
+    speaker_name: Optional[str] = None,
+    conversation_type: Optional[str] = None,
+    addressed: Optional[bool] = None,
+    message_id: Optional[str] = None,
+    thread_ends_at: Optional[str] = None,
+) -> AgentReply:
     '''Ask the agent once and return its reply.
+
+    speaker_name is the writer's name as Slack displays it. conversation_type
+    and addressed let the agent decide whether it may stay quiet. message_id is
+    the same on a second attempt at one message, so the agent records what the
+    message leads to once. thread_ends_at is when a channel thread stops being
+    answered. Any of them left as None is not sent.
 
     No actorId is sent. The agent keeps memory by session and by actor, so
     sending the person as the actor would give each person in a thread a
@@ -61,7 +98,16 @@ def ask(session_id: str, prompt: str, slack_user_id: str) -> AgentReply:
 
     Raises AgentFailed for anything but an answer or an input rejection.
     '''
-    payload = json.dumps({'prompt': prompt, 'slackUserId': slack_user_id})
+    fields = {
+        'prompt': prompt,
+        'slackUserId': slack_user_id,
+        'speakerName': speaker_name,
+        'conversationType': conversation_type,
+        'addressed': addressed,
+        'messageId': message_id,
+        'threadEndsAt': thread_ends_at,
+    }
+    payload = json.dumps({key: value for key, value in fields.items() if value is not None})
     try:
         response = client().invoke_agent_runtime(
             agentRuntimeArn=os.environ['AGENT_RUNTIME_ARN'],
@@ -79,9 +125,10 @@ def ask(session_id: str, prompt: str, slack_user_id: str) -> AgentReply:
     request_id = body.get('requestId') if isinstance(body, dict) else None
     if status not in (None, 200) or not isinstance(body, dict):
         raise AgentFailed(f'status {status}')
-    if body.get('kind') not in (KIND_ANSWER, KIND_INPUT_REJECTION):
+    if body.get('kind') not in (KIND_ANSWER, KIND_INPUT_REJECTION, KIND_NO_REPLY):
         raise AgentFailed(str(body.get('kind')))
     text = (body.get('text') or '').strip()
     if body['kind'] == KIND_ANSWER and not text:
         raise AgentFailed('empty answer')
-    return AgentReply(kind=body['kind'], text=text, request_id=request_id)
+    documents = _documents(body) if body['kind'] == KIND_ANSWER else []
+    return AgentReply(kind=body['kind'], text=text, request_id=request_id, documents=documents)

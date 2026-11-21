@@ -5,7 +5,7 @@ which must never reach a log.
 '''
 
 import re
-from typing import List, Sequence, Tuple
+from typing import Callable, List, Sequence, Tuple
 
 # The only words STRIDEr posts that the agent does not write.
 APOLOGY = "Sorry, I couldn't answer that. Please try again later."
@@ -16,8 +16,17 @@ START_AGAIN = (
     'Please send me a new message outside this thread to start again.'
 )
 REPLY_INCOMPLETE = "I couldn't post my whole reply. Please ask again."
+DOCUMENT_NOT_POSTED = "I couldn't post the document. Please ask me for it again."
 
-FIXED_SENTENCES = frozenset({APOLOGY, TOO_LONG, NOTHING_ASKED, START_AGAIN, REPLY_INCOMPLETE})
+FIXED_SENTENCES = frozenset(
+    {APOLOGY, TOO_LONG, NOTHING_ASKED, START_AGAIN, REPLY_INCOMPLETE, DOCUMENT_NOT_POSTED}
+)
+
+# How many different people's names are looked up for one message.
+MAX_PEOPLE_NAMED = 10
+SOMEONE = 'someone'
+# A mention of a person: <@U123>, <@W123>, either with |label.
+_PERSON = re.compile(r'<@([UW][A-Z0-9]+)(?:\|[^>]*)?>')
 
 # Slack accepts 12,000 characters of Markdown in one message.
 REPLY_PART_CHARS = 11000
@@ -49,6 +58,29 @@ def mentions(text: str, bot_user_id: str) -> bool:
 def strip_mention(text: str, bot_user_id: str) -> str:
     '''Return the text with mentions of the user removed and nothing else changed.'''
     return _mention_pattern(bot_user_id).sub('', text or '').strip()
+
+
+def name_people(text: str, name_of: Callable[[str], str], named: dict, known: dict = None) -> str:
+    '''Return the text with each mention of a person replaced by their name.
+
+    name_of gives the name for a user ID. known holds names already in hand,
+    such as the writer's and STRIDEr's own, which cost no lookup. named
+    remembers the names found, so that one message and its thread context share
+    one limit: at most MAX_PEOPLE_NAMED different people are looked up, and any
+    further ones become "someone". A message never shows a Slack identifier.
+    '''
+    known = known or {}
+
+    def replace(match: 're.Match') -> str:
+        user = match.group(1)
+        if user in known:
+            return known[user]
+        if user not in named:
+            if len(named) >= MAX_PEOPLE_NAMED:
+                return SOMEONE
+            named[user] = name_of(user)
+        return named[user]
+    return _PERSON.sub(replace, text or '')
 
 
 def _with_context(heading: str, earlier: Sequence[Tuple[str, str]], text: str) -> str:

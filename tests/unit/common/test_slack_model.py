@@ -123,3 +123,9 @@ def test_a_reply_in_a_channel_always_goes_in_a_thread():
     assert top_level.reply_thread_ts() == '1731790000.111111'
     assert message().reply_thread_ts() == '1731790000.111111'
     assert message(channelType='unknown').reply_thread_ts() == '1731790000.111111'
+
+
+def test_spec_008_adds_an_outcome_and_a_reason():
+    from common.model import slack as model
+    assert model.OUTCOME_NO_REPLY == 'no_reply'
+    assert model.REASON_DOCUMENT_NOT_POSTED == 'document_not_posted'

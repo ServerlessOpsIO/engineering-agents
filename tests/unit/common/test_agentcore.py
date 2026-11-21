@@ -101,3 +101,42 @@ def test_one_attempt_may_take_100_seconds_and_the_sdk_does_not_retry(monkeypatch
     assert config.read_timeout == 100
     assert config.retries['total_max_attempts'] == 1
     monkeypatch.setattr(agentcore, '_client', None)
+
+
+### Spec 008: who is speaking, no reply, documents
+def test_the_new_fields_are_sent_and_left_out_when_not_given(runtime):
+    fake = runtime(FakeRuntime({'kind': 'answer', 'text': 'a reply', 'requestId': 'r-1'}))
+
+    agentcore.ask(
+        SESSION, 'a question', 'U1', speaker_name='Ana Souza',
+        conversation_type=agentcore.CHANNEL_THREAD, addressed=False,
+        message_id='C1:1731790000.111111', thread_ends_at='2026-11-28T10:00:00Z',
+    )
+    agentcore.ask(SESSION, 'a question', 'U1', conversation_type=agentcore.DIRECT_MESSAGE)
+
+    full, bare = [json.loads(call['payload']) for call in fake.calls]
+    assert full == {
+        'prompt': 'a question', 'slackUserId': 'U1', 'speakerName': 'Ana Souza',
+        'conversationType': 'channel_thread', 'addressed': False,
+        'messageId': 'C1:1731790000.111111', 'threadEndsAt': '2026-11-28T10:00:00Z',
+    }
+    assert bare == {'prompt': 'a question', 'slackUserId': 'U1', 'conversationType': 'direct_message'}
+    assert 'actorId' not in full
+
+
+def test_no_reply_is_a_reply_with_no_text_and_not_a_failure(runtime):
+    runtime(FakeRuntime({'kind': 'no_reply', 'text': '', 'requestId': 'r-1'}))
+    reply = agentcore.ask(SESSION, 'a question', 'U1')
+    assert (reply.kind, reply.text, reply.documents) == ('no_reply', '', [])
+
+
+def test_documents_come_back_with_an_answer(runtime):
+    document = {'filename': 'threat-model-shop.md', 'title': 'Threat model: Shop', 'markdown': '# x'}
+    runtime(FakeRuntime({'kind': 'answer', 'text': 'attached', 'requestId': 'r-1',
+                         'documents': [document, {'filename': 'broken.md'}, 'not a document']}))
+    assert agentcore.ask(SESSION, 'a question', 'U1').documents == [document]
+
+
+def test_a_reply_without_documents_has_none(runtime):
+    runtime(FakeRuntime({'kind': 'answer', 'text': 'a reply', 'documents': 'nonsense'}))
+    assert agentcore.ask(SESSION, 'a question', 'U1').documents == []

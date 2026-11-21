@@ -22,7 +22,8 @@ def test_the_fixed_sentences_are_the_agreed_wording():
         'Please send me a new message outside this thread to start again.'
     )
     assert text.REPLY_INCOMPLETE == "I couldn't post my whole reply. Please ask again."
-    assert len(text.FIXED_SENTENCES) == 5
+    assert text.DOCUMENT_NOT_POSTED == "I couldn't post the document. Please ask me for it again."
+    assert len(text.FIXED_SENTENCES) == 6
 
 
 ### Mentions
@@ -168,3 +169,43 @@ def test_an_unlabelled_reply_is_not_incomplete():
     assert not text.incomplete_part(text.APOLOGY)
     assert not text.incomplete_part('')
     assert not text.incomplete_part(None)
+
+
+### People are named (spec 008: FR-030)
+def _names():
+    looked_up = []
+
+    def name_of(user):
+        looked_up.append(user)
+        return {'U1': 'Uma One', 'W2': 'Wim Two'}.get(user, 'Robin Example')
+    return name_of, looked_up
+
+
+def test_a_mention_of_a_person_becomes_their_name():
+    name_of, _ = _names()
+    assert text.name_people('ask <@U1> and <@W2|wim> and <@U3>', name_of, {}) == (
+        'ask Uma One and Wim Two and Robin Example'
+    )
+
+
+def test_a_name_already_known_is_not_looked_up_again():
+    name_of, looked_up = _names()
+    known = {'U0STRIDER': 'STRIDEr'}
+    assert text.name_people('<@U0STRIDER> <@U1> <@U1>', name_of, {}, known) == 'STRIDEr Uma One Uma One'
+    assert looked_up == ['U1']
+
+
+def test_only_ten_different_people_are_named():
+    name_of, looked_up = _names()
+    said = ' '.join(f'<@U{n:03d}>' for n in range(12))
+    result = text.name_people(said, name_of, {})
+    assert result.count('Robin Example') == 10 and result.count('someone') == 2
+    assert len(looked_up) == 10
+
+
+def test_channels_links_and_text_without_mentions_are_left_alone():
+    name_of, looked_up = _names()
+    said = 'see <#C123|general> and <https://example.com|this> & that'
+    assert text.name_people(said, name_of, {}) == said
+    assert text.name_people('', name_of, {}) == '' and text.name_people(None, name_of, {}) == ''
+    assert looked_up == []

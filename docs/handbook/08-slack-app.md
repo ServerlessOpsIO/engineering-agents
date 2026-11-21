@@ -171,6 +171,11 @@ adds one:
    stored as `SLACK_BOT_TOKEN`. If it has changed, store the new one.
 4. Run the workflow with the action `apply`. It passes, and closes the issue if one is open.
 
+The app holds `files:write` so that STRIDEr can post the written threat model and its
+facilitator's notes as files. It lets the app add files to any conversation it is in. Until
+the app has been installed again with it, STRIDEr answers but cannot deliver a document,
+and people see "I couldn't post the document. Please ask me for it again."
+
 Removing a permission needs no action: the run passes. Whether the installed app keeps a
 removed permission until it is next installed is not yet known; see issue #7.
 
