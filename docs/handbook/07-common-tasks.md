@@ -41,8 +41,20 @@ uv run --with boto3 scripts/invoke.py "What can you do?"
 
 ## Change the agent's instructions
 
-Edit `src/agent/system_prompt.md`. Add a test to `tests/unit/test_prompt.py` for each rule the
-prompt must keep.
+Who the agent is and the rules that always hold are in `src/agent/persona.md`; add a test to
+`tests/unit/test_prompt.py` for each rule it must keep. How it carries out a task is in a
+skill under `src/agent/skills/`. A rule that code enforces is in `src/agent/session/`.
+[Threat modelling sessions](10-threat-model-sessions.md) says how to change each and how to
+check the change.
+
+## Play the fixed threat modelling session
+
+```bash
+export AGENT_RUNTIME_ARN=<as above>
+pipenv run play-session
+```
+
+See [Threat modelling sessions](10-threat-model-sessions.md#playing-the-fixed-session).
 
 ## Change the model
 

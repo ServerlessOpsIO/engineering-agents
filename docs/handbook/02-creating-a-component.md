@@ -9,6 +9,7 @@ template, whose source is the `backstage-aws-agentcore-template` repository.
 | --- | --- | --- |
 | Component Info | Name, description, owner, domain, system, environment, account | `catalog-info.yaml`, `cfn-parameters.json`, `cfn-tags.json`, `samconfig.toml`, the repository's custom properties and the `DEPLOYMENT_ACCOUNT_ID` secret |
 | Agent configuration | Instructions, model, Python version, conversation memory | `src/agent/system_prompt.md`, `ModelId` in `cfn-parameters.json`, the Dockerfile and workflows, and the memory resources in `template.yaml` |
+| | | In this repository `src/agent/system_prompt.md` has since been split into a persona, `src/agent/persona.md`, and skills in `src/agent/skills/`. See [Threat modelling sessions](10-threat-model-sessions.md). |
 | Spec Kit | Whether to initialize Spec Kit, and for which coding agent | The Spec Kit files in the repository |
 | Copilot Cloud Agent | Whether to launch a Copilot task, and its prompt | A Copilot task on the new repository |
 

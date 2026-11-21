@@ -33,6 +33,9 @@ feature.
 - **A channel thread lasts 7 days.** After that STRIDEr no longer remembers it and asks you
   to send a new message outside the thread.
 - **Group direct messages are not supported.** See issue #13.
+- **During a threat modelling session STRIDEr may stay quiet** in a channel thread when
+  people are talking to each other. The eyes still appear and go. A mention always gets a
+  reply. See [Threat modelling sessions](10-threat-model-sessions.md).
 
 ## How it works
 
@@ -108,13 +111,23 @@ answers in a thread that already has messages, those messages go first, oldest f
 with who wrote it. If they do not fit in `MaxPromptChars`, the oldest are left out and the
 agent is told.
 
+People are given to the agent by name, never by Slack ID. The worker sends the writer's
+name, the one Slack displays, as `speakerName`, and replaces each mention of a person in the
+message and in the earlier messages with that person's name, for up to ten people besides
+the writer. The names come from the lookup already made for the membership rule and are
+remembered with it for an hour. A name Slack cannot give is `Someone`.
+
+The worker also sends whether the conversation is a channel thread or a direct message,
+whether the message mentions STRIDEr, an identifier for the message that is the same on a
+second try, and, for a channel thread, when the thread will stop being answered.
+
 The person's Slack ID is sent as `slackUserId`, which the agent ignores today. It is not
 sent as `actorId`: the agent keeps memory by session and by actor, so that would give each
 person in a thread a conversation of their own.
 
 ### What STRIDEr says when it cannot answer
 
-These five sentences are in `src/common/common/slack/text.py`. The agent does not write
+These six sentences are in `src/common/common/slack/text.py`. The agent does not write
 them.
 
 | When | What is posted |
@@ -124,8 +137,20 @@ them.
 | A mention or a direct message with no text | What would you like help with? |
 | A channel thread is more than `MemoryEventExpiryDays` old | I no longer remember this conversation. Please send me a new message outside this thread to start again. |
 | Only part of a long reply could be posted | I couldn't post my whole reply. Please ask again. |
+| A document could not be posted as a file | I couldn't post the document. Please ask me for it again. |
 
 A reply over 11,000 characters is posted in parts, each ending `(part 1 of 3)`.
+
+### No reply, and documents
+
+The agent may answer `no_reply`: it read the message and judged that it needed nothing. The
+worker then posts nothing. The eyes are added and removed as for any message, and it is not
+a failure.
+
+A reply may carry documents: the written threat model and the facilitator's notes. The
+worker posts the reply's text and then uploads each document as a Markdown file in the same
+place, so that its content is exactly what was written. If one cannot be uploaded after
+three tries, the next is still tried, and the person is told once.
 
 ## Privacy
 
@@ -139,6 +164,8 @@ A reply over 11,000 characters is posted in parts, each ending `(part 1 of 3)`.
   cannot tell whose thread a reply is in, so the worker reads the thread to find out.
 - **Slack IDs are logged.** People, channels and threads are identified in the logs by
   their Slack IDs.
+- **Names are never logged.** A person's name is given to the agent and appears in no log.
+  Nor does a document.
 - **Logs are kept 30 days**, and the access log 7.
 
 ## First-time setup
@@ -210,6 +237,8 @@ is in the output of the **Main** workflow's `deploy` job.
 | `declined` | `not_member` | The writer is not a full member. |
 | `declined` | `thread_expired` | The thread is older than the agent's memory. |
 | `declined` | `too_long`, `nothing_asked` | A fixed sentence was posted. |
+| `no_reply` | | The agent judged that the message needed nothing from it. Nothing was posted. |
+| `failed` | `document_not_posted` | The reply was posted and a document could not be uploaded. |
 | `failed` | `agent_failed` | The agent failed twice. The apology was posted. |
 | `failed` | `reply_not_posted` | Slack would not take the reply, or part of it. |
 | `failed` | `thread_unreadable`, `membership_unknown`, `identity_unknown` | Slack could not be asked. |

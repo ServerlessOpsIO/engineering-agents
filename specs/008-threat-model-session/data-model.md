@@ -36,7 +36,7 @@ at a time per thread and per direct message (FR-016). Absent until a session sta
 | `status` | `in_progress` \| `finished` \| `abandoned` | A new session may start only when there is none or the last is `finished` or `abandoned`. Starting one replaces the record. |
 | `system` | string | The system's name, as the participants gave it. |
 | `startedOn` | date | UTC date of the first message of the session. |
-| `turn` | integer | Counts messages since the session started. Used to tell "the next message" from the same one (FR-060). A repeated request for the same message does not advance it. |
+| `turn` | integer | Counts messages since the session started, including after it has ended. Used to tell "the next message" from the same one (FR-060). A repeated request for the same message sees the same turn as the first attempt. |
 | `stage` | stage name | The current stage. |
 | `stages` | map of stage name to `not_started` \| `in_progress` \| `complete` \| `skipped` | Stage names: `scope`, `system`, `threats`, `rating`, `mitigations`, `model` (FR-010). |
 | `participants` | list of names | People who wrote while the session was in progress, in order of first message. Added by code from each request's `speakerName`, never by the model. |
@@ -54,6 +54,8 @@ at a time per thread and per direct message (FR-016). Absent until a session sta
 | `notes` | list of notes | |
 | `pending` | pending change, or none | |
 | `notesPostedOnTurn` | integer, or none | Set when the facilitator's notes are posted. |
+| `replaceWarnedOnTurn` | integer, or none | The turn on which STRIDEr was told to say that starting a new session replaces this ended one. A new session can start on a later turn (FR-016). |
+| `counters` | map of prefix to integer | The last number given for each kind of identifier, so none is reused. |
 | `endWarned` | boolean | Set once STRIDEr has been told to warn that a channel thread has less than a day left, so it warns once (FR-015). |
 | `removedAfterNotes` | list of identifiers | Threats and mitigations removed after the notes were posted, so that the written model can say so (FR-059). |
 
@@ -69,7 +71,7 @@ session.
 |---|---|
 | Its `messageId` differs from `lastMessageId`, or it has none | Copies `session` and `repositories` to `sessionBefore`, sets `lastMessageId`, and advances `turn` when a session is in progress. |
 | Any request, when `lastMessageDone` is false | First puts `sessionBefore` back as `session` and `repositories`. The message before never finished, so nothing from it stays recorded (FR-063). Then one of the two rows below applies. |
-| Its `messageId` equals `lastMessageId` | Puts `sessionBefore` back as `session` and `repositories`, and does not advance `turn`. Whatever the first attempt recorded is undone, and this attempt records it once. |
+| Its `messageId` equals `lastMessageId` | Puts `sessionBefore` back as `session` and `repositories`, then advances `turn` as the first attempt did, so the repeat sees the same turn. Whatever the first attempt recorded is undone, and this attempt records it once. |
 
 This covers a session that the first attempt started: `sessionBefore` then holds "no
 session". The conversation itself still holds the message twice, as it has since feature
@@ -344,7 +346,7 @@ for the membership rule, and remembered with the membership answer for an hour.
 | Rule | |
 |------|---|
 | Source | `profile.display_name`; when empty, `profile.real_name`; when empty, `real_name`. |
-| Cleaning | Line breaks and control characters removed, runs of spaces made one, `<`, `>` and backticks removed, cut to 80 characters. |
+| Cleaning | Line breaks and control characters removed, runs of spaces made one, `<`, `>`, `[`, `]` and backticks removed, cut to 80 characters. Square brackets go because the message is given to the model as `[From: name]`. The agent cleans the name again. |
 | Unknown | When Slack cannot say, or nothing is left after cleaning: `Someone`. A name that cannot be found never stops a message being answered. |
 | Mentions in text | `<@U…>`, `<@W…>` and either with `\|label` become the person's name, for up to 10 different people in a message; further ones become `someone`. STRIDEr's own mention is removed as before. |
 | Thread context | Each earlier message is given with its writer's name in place of `<@U…>`. |

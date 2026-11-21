@@ -86,6 +86,12 @@ Parameters:
     MaxValue: 365
     Default: 7
 
+  GitHubOrg:
+    Type: String
+    Description: "The GitHub organisation whose public repositories the agent may read"
+    AllowedPattern: '^[A-Za-z0-9][A-Za-z0-9-]{0,38}$'
+    Default: ServerlessOpsIO
+
   Hostname:
     Type: String
     Description: "Hostname Slack sends events to"
@@ -263,6 +269,16 @@ Resources:
         MAX_PROMPT_CHARS: !Ref MaxPromptChars
         LOG_LEVEL: !Ref LogLevel
         MEMORY_ID: !GetAtt AgentMemory.MemoryId
+        GITHUB_ORG: !Ref GitHubOrg
+        # Keep what people write out of traces. Strands puts the content of every
+        # model call and tool call on its spans unless told not to: an empty list
+        # here makes it write [REDACTED] for messages, replies, the system prompt,
+        # tool arguments and tool results. The second setting is the same switch
+        # for the instrumentor that traces the call to Bedrock itself. Both must
+        # be in place before CloudWatch Transaction Search is turned on.
+        # See docs/handbook/06-observability.md.
+        OTEL_SEMCONV_STABILITY_OPT_IN: 'gen_ai_unredacted_attributes='
+        OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT: 'false'
 
   # Short-term conversation memory: the events of each session are kept for
   # MemoryEventExpiryDays. No long-term strategies are configured.

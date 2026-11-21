@@ -8,10 +8,15 @@ It handles each message once. There is no record of what has been answered,
 so running twice could post twice; a message this function does not finish
 goes to the held-back queue, where CleanUpSlackMessage deals with it.
 
-It never logs a queued message, a prompt or a reply. They hold what people
-wrote.
+When a session is in progress the agent may judge that a message needs nothing
+from it; then nothing is posted. A document the agent attaches to its reply,
+such as a written threat model, is posted as a file.
+
+It never logs a queued message, a prompt, a reply, a document or a person's
+name. They hold what people wrote and who they are.
 '''
 
+import datetime
 import os
 import time
 from typing import Any, Dict, List, Optional, Tuple
@@ -26,7 +31,9 @@ from common.model.slack import (
     OUTCOME_ANSWERED,
     OUTCOME_DECLINED,
     OUTCOME_FAILED,
+    OUTCOME_NO_REPLY,
     REASON_AGENT_FAILED,
+    REASON_DOCUMENT_NOT_POSTED,
     REASON_IDENTITY_UNKNOWN,
     REASON_MEMBERSHIP_UNKNOWN,
     REASON_NOTHING_ASKED,
@@ -40,7 +47,7 @@ from common.model.slack import (
 )
 from common.slack import api, text
 from common.slack.errors import SlackUnavailable
-from common.slack.thread import read_thread, thread_expired
+from common.slack.thread import SECONDS_IN_A_DAY, STRIDER, read_thread, thread_expired
 
 LOGGER = Logger(utc=True)
 
@@ -73,14 +80,41 @@ def _say(message: QueuedMessage, sentence: str, record: Dict[str, Any]) -> None:
         record['reactionRemoved'] = api.remove_eyes(message.channel, message.ts)
 
 
-def _ask_agent(message: QueuedMessage, prompt: str, record: Dict[str, Any]) -> Optional[agentcore.AgentReply]:
-    '''Ask the agent, and once more if it fails. Return its reply, or None.'''
+def _thread_ends_at(message: QueuedMessage) -> Optional[str]:
+    '''Return when a channel thread stops being answered, or None for a direct message.
+
+    The same sum thread_expired uses: the thread's first message plus the agent's memory.
+    '''
+    if message.is_direct_message():
+        return None
+    ends = float(message.threadTs) + int(os.environ['MEMORY_EXPIRY_DAYS']) * SECONDS_IN_A_DAY
+    return datetime.datetime.fromtimestamp(ends, datetime.timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
+
+
+def _ask_agent(
+    message: QueuedMessage, prompt: str, speaker_name: str, mentioned: bool, record: Dict[str, Any]
+) -> Optional[agentcore.AgentReply]:
+    '''Ask the agent, and once more if it fails. Return its reply, or None.
+
+    Both attempts carry the same message ID, so that whatever the first led the
+    agent to record is recorded once.
+    '''
     session_id = message.session_id()
     record['sessionId'] = session_id
+    direct = message.is_direct_message()
     for attempt in range(1, ATTEMPTS + 1):
         record['attempts'] = attempt
         try:
-            reply = agentcore.ask(session_id, prompt, message.user)
+            reply = agentcore.ask(
+                session_id,
+                prompt,
+                message.user,
+                speaker_name=speaker_name,
+                conversation_type=agentcore.DIRECT_MESSAGE if direct else agentcore.CHANNEL_THREAD,
+                addressed=mentioned,
+                message_id=message.deduplication_id(),
+                thread_ends_at=_thread_ends_at(message),
+            )
             record['agentRequestId'] = reply.request_id
             return reply
         except agentcore.AgentFailed:
@@ -92,6 +126,7 @@ def _ask_agent(message: QueuedMessage, prompt: str, record: Dict[str, Any]) -> O
 def _answer(
     message: QueuedMessage,
     bot_user_id: str,
+    mentioned: bool,
     addressed: bool,
     earlier: List[Tuple[str, str]],
     record: Dict[str, Any],
@@ -107,6 +142,22 @@ def _answer(
             post(text.NOTHING_ASKED)
         return OUTCOME_DECLINED, REASON_NOTHING_ASKED
 
+    # People are given to the agent by name, never by Slack identifier. Names are
+    # looked up for the writer and for up to ten people mentioned.
+    def name_of(user: str) -> str:
+        return api.name_of(user, message.teamId)
+
+    speaker_name = name_of(message.user)
+    known = {bot_user_id: STRIDER, message.user: speaker_name}
+    mentioned_people: Dict[str, str] = {}
+
+    def named(said: str) -> str:
+        return text.name_people(said, name_of, mentioned_people, known)
+
+    asked = named(asked)
+    earlier = [(named(writer), named(said)) for writer, said in earlier]
+    record['namesLookedUp'] = 1 + len(mentioned_people)
+
     try:
         prompt, dropped = text.build_prompt(asked, earlier, int(os.environ['MAX_PROMPT_CHARS']))
     except text.TooLong:
@@ -115,13 +166,16 @@ def _answer(
     record['contextMessages'] = len(earlier) - dropped
     record['contextDropped'] = dropped
 
-    reply = _ask_agent(message, prompt, record)
+    reply = _ask_agent(message, prompt, speaker_name, mentioned, record)
     if reply is None:
         post(text.APOLOGY)
         return OUTCOME_FAILED, REASON_AGENT_FAILED
     if reply.kind == agentcore.KIND_INPUT_REJECTION:
         post(text.TOO_LONG)
         return OUTCOME_DECLINED, REASON_TOO_LONG
+    if reply.kind == agentcore.KIND_NO_REPLY:
+        # The agent read the message and judged that it needed nothing. Not a failure.
+        return OUTCOME_NO_REPLY, None
 
     parts = text.split_reply(reply.text)
     posted = 0
@@ -133,6 +187,17 @@ def _answer(
     if posted < len(parts):
         post(text.REPLY_INCOMPLETE if posted else text.APOLOGY)
         return OUTCOME_FAILED, REASON_REPLY_NOT_POSTED
+
+    # Every document is tried, even after one fails, and the person is told once.
+    delivered = 0
+    for document in reply.documents:
+        if api.upload(message.channel, message.reply_thread_ts(), document['filename'],
+                      document['title'], document['markdown']):
+            delivered += 1
+    record['documents'] = delivered
+    if delivered < len(reply.documents):
+        post(text.DOCUMENT_NOT_POSTED)
+        return OUTCOME_FAILED, REASON_DOCUMENT_NOT_POSTED
     return OUTCOME_ANSWERED, None
 
 
@@ -189,7 +254,7 @@ def _main(message: QueuedMessage, record: Dict[str, Any]) -> Outcome:
 
     record['reactionAdded'] = api.add_eyes(message.channel, message.ts)
     try:
-        return _answer(message, bot_user_id, addressed, earlier, record)
+        return _answer(message, bot_user_id, mentioned, addressed, earlier, record)
     finally:
         # Whatever happened, the eyes must not be left to say "working on it".
         record['reactionRemoved'] = api.remove_eyes(message.channel, message.ts)

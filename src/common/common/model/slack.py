@@ -28,6 +28,8 @@ DIRECT_MESSAGE_SESSION = 'direct-message'
 OUTCOME_ANSWERED = 'answered'
 OUTCOME_DECLINED = 'declined'
 OUTCOME_FAILED = 'failed'
+# The agent judged that the message needed nothing from it. Not a failure.
+OUTCOME_NO_REPLY = 'no_reply'
 # How the cleanup function's handling of one message ends.
 OUTCOME_CLEANED_UP = 'cleaned_up'
 
@@ -41,6 +43,7 @@ REASON_THREAD_UNREADABLE = 'thread_unreadable'
 REASON_MEMBERSHIP_UNKNOWN = 'membership_unknown'
 REASON_IDENTITY_UNKNOWN = 'identity_unknown'
 REASON_REPLY_NOT_POSTED = 'reply_not_posted'
+REASON_DOCUMENT_NOT_POSTED = 'document_not_posted'
 
 REASON_NOT_STARTED = 'not_started'
 REASON_ALREADY_ANSWERED = 'already_answered'

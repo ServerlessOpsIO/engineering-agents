@@ -34,7 +34,8 @@ oauth_config:
       - channels:history  # Read thread replies in public channels that do not mention STRIDEr.
       - groups:history  # Read thread replies in private channels that do not mention STRIDEr.
       - reactions:write  # Show that STRIDEr is working on a message, and clear it when done.
-      - users:read  # Check that a person is a full member of the workspace before answering them.
+      - users:read  # Check that a person is a full member of the workspace before answering them, and learn the name Slack displays for them.
+      - files:write  # Post the written threat model and the facilitator's notes as files.
 
 settings:
   event_subscriptions:

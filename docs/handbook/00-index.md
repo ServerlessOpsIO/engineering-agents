@@ -13,6 +13,8 @@ current as the agent, its infrastructure and its workflows change.
 - [The STRIDEr Slack app](08-slack-app.md): create, change and repair the Slack app.
 - [STRIDEr Slack messaging](09-slack-messaging.md): how a Slack message reaches the agent and
   the reply gets back, first-time setup, and finding a failure.
+- [Threat modelling sessions](10-threat-model-sessions.md): how STRIDEr leads a session, the
+  persona and the skill, what the code enforces, and how to check a change.
 
 ## Reading in Backstage
 

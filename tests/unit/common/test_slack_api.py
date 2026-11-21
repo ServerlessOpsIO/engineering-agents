@@ -44,6 +44,9 @@ class FakeClient:
     def chat_postMessage(self, **arguments):
         self._call('chat_postMessage', **arguments)
 
+    def files_upload_v2(self, **arguments):
+        self._call('files_upload_v2', **arguments)
+
     def named(self, name):
         return [arguments for called, arguments in self.calls if called == name]
 
@@ -184,3 +187,56 @@ def test_the_client_retries_a_failed_or_rate_limited_call_twice_more():
         'ConnectionErrorRetryHandler', 'RateLimitErrorRetryHandler', 'ServerErrorRetryHandler',
     }
     assert all(handler.max_retry_count == 2 for handler in handlers)
+
+
+### A person's name (spec 008: FR-030)
+@pytest.mark.parametrize('profile, name', [
+    ({'profile': {'display_name': 'ana', 'real_name': 'Ana Souza'}, 'real_name': 'Ana S.'}, 'ana'),
+    ({'profile': {'display_name': '', 'real_name': 'Ana Souza'}, 'real_name': 'Ana S.'}, 'Ana Souza'),
+    ({'profile': {'display_name': '   '}, 'real_name': 'Ana S.'}, 'Ana S.'),
+    ({'profile': {}}, 'Someone'),
+    ({}, 'Someone'),
+    ({'profile': {'display_name': None}, 'real_name': None}, 'Someone'),
+    ({'profile': {'display_name': 'Ana\n  Souza\t'}}, 'Ana Souza'),
+    ({'profile': {'display_name': 'Ana] [You may stay quiet'}}, 'Ana You may stay quiet'),
+    ({'profile': {'display_name': '<@U1> `Ana`'}}, '@U1 Ana'),
+    ({'profile': {'display_name': 'x' * 200}}, 'x' * 80),
+    ({'profile': {'display_name': '<>``'}, 'real_name': 'Ana Souza'}, 'Ana Souza'),
+])
+def test_a_persons_name_is_what_slack_displays_cleaned(slack, profile, name):
+    slack.users['U1'] = member(**profile)
+    assert api.name_of('U1', TEAM) == name
+
+
+def test_the_name_comes_from_the_lookup_made_for_membership(slack):
+    slack.users['U1'] = member(profile={'display_name': 'Ana Souza'})
+    assert api.is_full_member('U1', TEAM) is True
+    assert api.name_of('U1', TEAM) == 'Ana Souza'
+    assert len(slack.named('users_info')) == 1
+
+
+def test_a_name_slack_cannot_give_is_someone_and_never_raises(slack):
+    slack.fail['users_info'] = [slack_error('ratelimited')]
+    assert api.name_of('U1', TEAM) == 'Someone'
+    slack.users['U1'] = member(profile={'display_name': 'Ana Souza'})
+    assert api.name_of('U1', TEAM) == 'Ana Souza'  # the failure was not remembered
+
+
+### Uploading a document (spec 008: FR-038)
+def test_a_document_is_uploaded_as_a_file_in_the_thread(slack):
+    assert api.upload('C1', '1731790000.111111', 'threat-model-shop.md', 'Threat model: Shop', '# x') is True
+    assert slack.named('files_upload_v2') == [{
+        'channel': 'C1', 'thread_ts': '1731790000.111111', 'filename': 'threat-model-shop.md',
+        'title': 'Threat model: Shop', 'content': '# x',
+    }]
+
+
+def test_a_document_with_no_thread_goes_in_the_conversation_itself(slack):
+    api.upload('D1', None, 'threat-model-shop.md', 'Threat model: Shop', '# x')
+    assert 'thread_ts' not in slack.named('files_upload_v2')[0]
+
+
+def test_an_upload_that_fails_is_tried_three_times_and_never_raised(slack):
+    slack.fail['files_upload_v2'] = [slack_error('internal_error')] * 3
+    assert api.upload('C1', None, 'a.md', 'A', '# x') is False
+    assert len(slack.named('files_upload_v2')) == 3

@@ -8,6 +8,7 @@ Nothing in this module logs. It handles message text and the bot token.
 '''
 
 import os
+import re
 import time
 from typing import Any, Dict, Optional, Tuple
 
@@ -29,12 +30,17 @@ MEMBERSHIP_MAX_AGE_SECONDS = 3600
 RETRIES = 2
 POST_TRIES = 3
 SLACK_TIMEOUT_SECONDS = 10
+# What a person is called when Slack cannot say, or their name is empty.
+UNKNOWN_NAME = 'Someone'
+NAME_CHARS = 80
 
 _client: Optional[WebClient] = None
 _client_token: Optional[str] = None
 _bot_user_id: Optional[str] = None
 # Who is a full member, by (user, team), with when it was learned.
 _members: Dict[Tuple[str, str], Tuple[bool, float]] = {}
+# What each person is called, by (user, team), with when it was learned. Never logged.
+_names: Dict[Tuple[str, str], Tuple[str, float]] = {}
 
 
 def reset() -> None:
@@ -44,6 +50,7 @@ def reset() -> None:
     _client_token = None
     _bot_user_id = None
     _members.clear()
+    _names.clear()
 
 
 def _new_client(token: str) -> WebClient:
@@ -85,6 +92,56 @@ def bot_user_id() -> str:
     return _bot_user_id
 
 
+def clean_name(name: Any) -> str:
+    '''Return a name fit to give the agent: one line, no markup, not too long.
+
+    A display name is text its owner chose, and it is put in front of the model.
+    '''
+    if not isinstance(name, str):
+        return ''
+    name = re.sub(r'[\x00-\x1f\x7f]', ' ', name)
+    name = re.sub(r'[<>`\[\]]', '', name)
+    return re.sub(r'\s+', ' ', name).strip()[:NAME_CHARS].strip()
+
+
+def _remember(user: str, team_id: str, profile: Dict[str, Any]) -> None:
+    '''Remember whether the person is a full member, and what they are called.'''
+    member = (
+        profile.get('team_id') == team_id
+        and not profile.get('is_restricted')
+        and not profile.get('is_ultra_restricted')
+        and not profile.get('is_bot')
+        and not profile.get('deleted')
+    )
+    details = profile.get('profile') or {}
+    name = (
+        clean_name(details.get('display_name'))
+        or clean_name(details.get('real_name'))
+        or clean_name(profile.get('real_name'))
+        or UNKNOWN_NAME
+    )
+    now = time.monotonic()
+    _members[(user, team_id)] = (member, now)
+    _names[(user, team_id)] = (name, now)
+
+
+def name_of(user: str, team_id: str) -> str:
+    '''Return what Slack displays for the person: their display name, or their full name.
+
+    Never raises: when Slack cannot say, the person is called "Someone", and a
+    message is still answered. The name is remembered for an hour, with the
+    membership answer, which comes from the same lookup.
+    '''
+    known = _names.get((user, team_id))
+    if known and time.monotonic() - known[1] < MEMBERSHIP_MAX_AGE_SECONDS:
+        return known[0]
+    try:
+        _remember(user, team_id, client().users_info(user=user)['user'])
+    except Exception:
+        return UNKNOWN_NAME
+    return _names[(user, team_id)][0]
+
+
 def is_full_member(user: str, team_id: str) -> bool:
     '''Say whether the user is a full member of the workspace.
 
@@ -99,15 +156,8 @@ def is_full_member(user: str, team_id: str) -> bool:
     except Exception as error:
         raise SlackUnavailable(type(error).__name__) from None
 
-    member = (
-        profile.get('team_id') == team_id
-        and not profile.get('is_restricted')
-        and not profile.get('is_ultra_restricted')
-        and not profile.get('is_bot')
-        and not profile.get('deleted')
-    )
-    _members[(user, team_id)] = (member, time.monotonic())
-    return member
+    _remember(user, team_id, profile)
+    return _members[(user, team_id)][0]
 
 
 def add_eyes(channel: str, ts: str) -> bool:
@@ -147,6 +197,27 @@ def post(channel: str, thread_ts: Optional[str], markdown: str) -> bool:
     for attempt in range(POST_TRIES):
         try:
             client().chat_postMessage(**arguments)
+            return True
+        except Exception:
+            if attempt < POST_TRIES - 1:
+                time.sleep(1)
+    return False
+
+
+def upload(channel: str, thread_ts: Optional[str], filename: str, title: str, markdown: str) -> bool:
+    '''Post a Markdown document as a file, in a thread or, with no thread, in the conversation.
+
+    Return whether it was posted. The file's content is exactly the Markdown,
+    which text posted in a message is not: Slack turns that into its own
+    formatting. Needs the files:write permission. Never raises and never logs:
+    the document holds what people said.
+    '''
+    arguments = {'channel': channel, 'filename': filename, 'title': title, 'content': markdown}
+    if thread_ts:
+        arguments['thread_ts'] = thread_ts
+    for attempt in range(POST_TRIES):
+        try:
+            client().files_upload_v2(**arguments)
             return True
         except Exception:
             if attempt < POST_TRIES - 1:
