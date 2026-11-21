@@ -1,0 +1,219 @@
+# The fixed threat modelling session (spec 008, FR-048).
+#
+# scripts/play_session.py sends these turns to a deployed agent, in order, as one
+# conversation in a channel thread, and checks what comes back. Each turn is written
+# to stand alone: it says what it has to say whatever STRIDEr asked before it.
+#
+# A turn:
+#   speaker    who writes it
+#   text       what they write
+#   addressed  true when the message mentions STRIDEr (default false)
+#   type       channel_thread (default) or direct_message
+#   expect     answer, no_reply or any (default any)
+#   documents  how many documents the reply must carry (left out: not checked)
+#   note       what a person reading the transcript should look for
+#
+# The system is made up. Nothing here is about a real one.
+
+system: URL shortener
+
+turns:
+  - speaker: Ana Souza
+    addressed: true
+    text: "@STRIDEr let's threat model our URL shortener"
+    expect: answer
+    opening: true
+    note: The opening is given before the first question. The scope stage is named. One question.
+
+  - speaker: Ana Souza
+    text: >-
+      It turns long links into short ones and redirects the people who click them. In scope:
+      the public API, the redirect service and the stats worker, in production. Out of scope:
+      the marketing site. We assume AWS itself is secure. What would hurt most is someone
+      changing where a short link points.
+    note: Each scope item is read back.
+
+  - speaker: Ben Okafor
+    text: "Ana, did you bring the diagram from last week?"
+    expect: no_reply
+    note: Plainly between participants.
+
+  - speaker: Ana Souza
+    text: "No, but I remember it well enough."
+    expect: no_reply
+
+  - speaker: Ana Souza
+    text: "That's the whole scope. Let's move on to the system."
+    note: The system stage is named.
+
+  - speaker: Ben Okafor
+    text: >-
+      Components: the API, which creates short links; the redirect service, which looks a
+      link up and redirects; and the stats worker, which counts clicks. Data rests in one
+      place, the links table. Outside the system there is the browser of whoever creates or
+      clicks a link.
+    note: Five elements are read back with identifiers.
+
+  - speaker: Ana Souza
+    text: >-
+      Data flows: the browser sends a long URL to the API. The API writes the link to the
+      links table. The browser asks the redirect service for a short link. The redirect
+      service reads the link from the links table. The redirect service sends a click event
+      to the stats worker.
+
+  - speaker: Ben Okafor
+    text: >-
+      One trust boundary: our AWS account, which holds the API, the redirect service, the
+      stats worker and the links table. The browser is outside it. That is the complete
+      description of the system, let's go on to threats.
+    note: The threats stage is named.
+
+  - speaker: Ana Souza
+    text: "What are the threats here?"
+    expect: answer
+    note: ASKS FOR THE WORK. No threat is named. A question about one element and one category.
+
+  - speaker: Ben Okafor
+    text: >-
+      For the API, spoofing: someone could create links pretending to be another customer,
+      because the API key is sent in the URL and ends up in our logs.
+
+  - speaker: Ana Souza
+    text: >-
+      For the links table, tampering: the stats worker has write access to the whole table,
+      so a bug in it could overwrite where links point.
+
+  - speaker: Ana Souza
+    text: "Does anyone know what a replay attack actually is?"
+    expect: answer
+    note: A question to the group. STRIDEr explains the concept. It names no threat to this system.
+
+  - speaker: Ben Okafor
+    text: "Can you give an example of tampering with a database table like ours?"
+    expect: answer
+    note: ASKS FOR AN EXAMPLE THAT FITS. The example is from a cash machine or door locks, not a database.
+
+  - speaker: Ana Souza
+    text: >-
+      For the flow from the browser to the redirect service, information disclosure: we
+      looked and found none, the links are all public. For the redirect service, denial of
+      service: someone could flood it with lookups for links that don't exist.
+
+  - speaker: Ben Okafor
+    text: "We don't have anything more to add on threats. Let's move on to rating."
+    note: >-
+      The stats worker was never looked at. At most one hint for each element, pointing at an
+      area and naming no threat. What was not looked at is said once. The rating stage is named.
+
+  - speaker: Ana Souza
+    text: >-
+      T1, the API key one: likelihood medium, because keys do leak into logs but you would
+      need access to our logs. Impact high, because you could create links as any customer.
+    note: The severity is stated, and it is High.
+
+  - speaker: Ben Okafor
+    text: "What would you rate the links table one?"
+    expect: answer
+    note: ASKS FOR THE WORK. No likelihood, impact or severity is given. Questions from the factors.
+
+  - speaker: Ben Okafor
+    text: >-
+      T2, the links table one: likelihood low, because the worker's code is simple. Impact
+      high, because every link could be made to point somewhere else.
+
+  - speaker: Ana Souza
+    text: >-
+      T3, the flooding one: likelihood low, because nobody would bother. Impact medium,
+      redirects would slow down for everyone.
+    note: >-
+      STRIDEr may question this once, without giving a value: the service is public and was
+      said to be easy to flood.
+
+  - speaker: Ben Okafor
+    text: >-
+      I disagree with Ana about T3. The redirect endpoint is public and needs no sign-in,
+      anyone can script it, so the likelihood should be high.
+
+  - speaker: Ana Souza
+    text: "I still say low: we sit behind a CDN that absorbs that kind of traffic."
+    expect: answer
+    note: >-
+      A disagreement with two stated positions. STRIDEr sets out both and may say whose
+      reasoning is stronger. It names no value.
+
+  - speaker: Ben Okafor
+    text: "Fine, Ana is right about the CDN. Keep T3 at low. On to mitigations."
+    note: The rating was questioned and kept, so it belongs in the notes. The stage is named.
+
+  - speaker: Ana Souza
+    text: "Just pick the mitigation for T1 for us."
+    expect: answer
+    note: ASKS FOR THE WORK. No mitigation is chosen or suggested.
+
+  - speaker: Ana Souza
+    text: >-
+      For T1 we will mitigate: move the API key out of the URL into a header, and scrub keys
+      from the logs. Ben owns it.
+
+  - speaker: Ben Okafor
+    text: >-
+      T2: mitigate. Give the stats worker a role that can only update the click count. The
+      platform team owns that.
+
+  - speaker: Ana Souza
+    text: "T3 we accept, because the CDN absorbs floods."
+    note: No owner was named. STRIDEr asks once who is responsible.
+
+  - speaker: Ben Okafor
+    text: "Leave T3 without an owner for now."
+
+  - speaker: Ana Souza
+    addressed: true
+    text: "@STRIDEr can you show us the notes you have been keeping?"
+    expect: answer
+    note: The notes are not given away. They come when the session ends.
+
+  - speaker: Ben Okafor
+    text: "Can we have the model as it stands?"
+    expect: answer
+    documents: 1
+    part_way_model: true
+    note: The model comes as a file, without the notes.
+
+  - speaker: Ana Souza
+    text: "I think we are done. Let's finish the session."
+    documents: 0
+    note: Announced, with the warning that the model and the notes are about to be posted. Nothing posted yet.
+
+  - speaker: Ben Okafor
+    text: "Wait, not yet. I want to read the model first."
+    documents: 0
+    note: AN OBJECTION. The request is dropped. Nothing is posted.
+
+  - speaker: Ben Okafor
+    text: "I have read it and I'm happy. Let's finish the session now."
+    documents: 0
+    note: Asked again, so announced again. Nothing posted yet.
+
+  - speaker: Ana Souza
+    text: "Agreed, go ahead."
+    documents: 2
+    finishes: true
+    note: The model and the facilitator's notes are posted.
+
+  - speaker: Ana Souza
+    text: >-
+      One more thing for the model. A threat to the stats worker, repudiation: click events
+      are not signed, so nobody can say which service sent a count. Add it and post the
+      model again.
+    documents: 2
+    changed_after_notes: true
+    note: The new threat is marked as added after the notes. The notes are unchanged.
+
+# Words that must not be in the written model. The notes are STRIDEr's own, and nothing
+# from them belongs in the model; the command also checks that for every line of the notes.
+must_not_appear_in_model: []
+
+# Words that must be in the facilitator's notes. T3's rating was questioned and kept.
+must_appear_in_notes:
+  - T3

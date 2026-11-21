@@ -56,7 +56,12 @@ override one:
 | --- | --- | --- |
 | `MaxPromptChars` | `4000` | Longest prompt accepted |
 | `LogLevel` | `INFO` | Agent log level |
-| `MemoryEventExpiryDays` | `7` | Days a conversation's messages are kept. Also how old a Slack thread may be before STRIDEr asks for a new one. |
+| `MemoryEventExpiryDays` | `7` | Days a conversation's messages are kept. Also how old a Slack thread may be before STRIDEr asks for a new one, and so how long a threat modelling session in a thread has to finish. |
+| `GitHubOrg` | `ServerlessOpsIO` | The GitHub organisation whose public repositories STRIDEr may read. It reads no other. |
+
+Before CloudWatch Transaction Search is turned on, check that the runtime still has the two
+settings that keep what people write out of traces. See
+[Observability](06-observability.md#what-people-write-is-kept-out-of-traces).
 
 `ModelId` has no default in `template.yaml`, so it must be set in `cfn-parameters.json`. It
 must be a United States inference profile ID, which starts with `us.`, such as

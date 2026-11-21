@@ -56,7 +56,7 @@ def test_the_committed_definition_asks_for_the_planned_scopes_and_events():
     manifest = yaml.safe_load((REPO_ROOT / "slack" / "manifest.yaml").read_text())
     assert manifest["oauth_config"]["scopes"]["bot"] == [
         "app_mentions:read", "chat:write", "im:history", "channels:history", "groups:history",
-        "reactions:write", "users:read",
+        "reactions:write", "users:read", "files:write",
     ]
     assert manifest["settings"]["event_subscriptions"]["bot_events"] == [
         "app_mention", "message.im", "message.channels", "message.groups",

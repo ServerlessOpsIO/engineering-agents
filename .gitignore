@@ -79,3 +79,6 @@ Thumbs.db
 
 # AWS SAM
 .aws-sam/
+
+# Transcripts of the fixed threat modelling session. They hold a whole conversation.
+transcripts/

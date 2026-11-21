@@ -25,7 +25,8 @@ the [deployment prerequisites](docs/handbook/03-configuration.md#deployment-prer
 
 Then make the agent your own:
 
-- **Instructions**: edit [`src/agent/system_prompt.md`](src/agent/system_prompt.md).
+- **Instructions**: who the agent is, in [`src/agent/persona.md`](src/agent/persona.md), and how
+  it carries out a task, in a skill under [`src/agent/skills/`](src/agent/skills/).
 - **Behaviour and tools**: edit [`src/agent/main.py`](src/agent/main.py).
 - **Infrastructure**: edit [`template.yaml`](template.yaml).
 

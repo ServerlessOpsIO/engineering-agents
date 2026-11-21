@@ -53,6 +53,9 @@ class FakeSlack:
         self.eyes_added = True
         self.eyes_removed = True
         self.posts_that_fail = set()
+        self.names = {}
+        self.name_lookups = []
+        self.uploads_that_fail = set()
 
     def bot_user_id(self):
         if isinstance(self.bot, Exception):
@@ -67,6 +70,22 @@ class FakeSlack:
         if isinstance(self.member, Exception):
             raise self.member
         return self.member
+
+    def name_of(self, user, team_id):
+        # Kept apart from done: looking a name up is not something a person sees.
+        self.name_lookups.append(user)
+        return self.names.get(user, 'Robin Example')
+
+    def upload(self, channel, thread_ts, filename, title, markdown):
+        if filename in self.uploads_that_fail:
+            self.done.append(('upload failed', channel, thread_ts, filename))
+            return False
+        self.done.append(('upload', channel, thread_ts, filename, title, markdown))
+        return True
+
+    @property
+    def uploads(self):
+        return [step for step in self.done if step[0] == 'upload']
 
     def add_eyes(self, channel, ts):
         self.done.append(('eyes on', channel, ts))
@@ -104,8 +123,8 @@ class FakeAgent:
         self.replies = list(replies) or [AgentReply('answer', REPLY, 'agent-request-1')]
         self.asked = []
 
-    def __call__(self, session_id, prompt, slack_user_id):
-        self.asked.append({'session': session_id, 'prompt': prompt, 'user': slack_user_id})
+    def __call__(self, session_id, prompt, slack_user_id, **more):
+        self.asked.append({'session': session_id, 'prompt': prompt, 'user': slack_user_id, **more})
         reply = self.replies.pop(0) if len(self.replies) > 1 else self.replies[0]
         if isinstance(reply, Exception):
             raise reply
@@ -248,7 +267,8 @@ def test_the_agent_gets_the_message_without_the_mention_and_the_threads_session(
     mock_fn.handler(event, mock_context)
 
     [asked] = agent.asked
-    assert asked['prompt'] == 'ask <@U0SOMEONE> about *this*'
+    # A person is given to the agent by name, never by Slack identifier.
+    assert asked['prompt'] == 'ask Robin Example about *this*'
     assert asked['user'] == 'U0123ABCD'
     assert asked['session'] == 'slack-T0123ABCD-C0123ABCDEF-' + data['ts'].replace('.', '-')
 
@@ -366,8 +386,9 @@ def test_a_reply_with_no_mention_is_answered_in_striders_thread_with_its_session
 
 
 def test_the_first_time_strider_answers_in_a_thread_it_is_given_the_earlier_messages(
-    mock_fn, mock_event, mock_context, agent, thread, caplog
+    mock_fn, mock_event, mock_context, agent, thread, slack, caplog
 ):
+    slack.names = {'U1': 'Uma One', 'U2': 'Ugo Two'}
     thread.return_value = ThreadRead(
         mentioned=True, answered_before=False,
         earlier=[('<@U1>', 'we deploy on Fridays'), ('<@U2>', 'except in December')],
@@ -377,8 +398,8 @@ def test_the_first_time_strider_answers_in_a_thread_it_is_given_the_earlier_mess
 
     assert agent.asked[0]['prompt'] == (
         'Earlier messages in this Slack thread, oldest first:\n'
-        '<@U1>: we deploy on Fridays\n'
-        '<@U2>: except in December\n'
+        'Uma One: we deploy on Fridays\n'
+        'Ugo Two: except in December\n'
         '\n'
         'Message to answer:\n'
         'when do we deploy?'
@@ -758,3 +779,149 @@ def test_once_one_message_of_a_batch_fails_the_rest_are_reported_too(mock_fn, mo
         event['Records'][0]['messageId'], 'second-message'
     ]
     assert len(agent.asked) == 1
+
+
+### Who is speaking (spec 008: FR-030, FR-032)
+def test_the_agent_is_told_the_writers_name_and_what_kind_of_conversation_it_is(
+    mock_fn, mock_event, mock_context, slack, agent
+):
+    slack.names = {'U0123ABCD': 'Ana Souza'}
+    event = mention(mock_event, user='U0123ABCD')
+
+    mock_fn.handler(event, mock_context)
+
+    asked = agent.asked[0]
+    data = queued(event)
+    assert asked['speaker_name'] == 'Ana Souza'
+    assert asked['conversation_type'] == 'channel_thread'
+    assert asked['addressed'] is True
+    assert asked['message_id'] == f"{data['channel']}:{data['ts']}"
+    # The thread stops being answered when it is as old as the agent's memory.
+    ends = time.strptime(asked['thread_ends_at'], '%Y-%m-%dT%H:%M:%SZ')
+    assert abs(time.mktime(ends) - time.timezone - (float(data['threadTs']) + 7 * SECONDS_IN_A_DAY)) < 2
+
+
+def test_a_reply_without_a_mention_is_not_addressed(mock_fn, mock_event, mock_context, agent):
+    mock_fn.handler(thread_reply(mock_event), mock_context)
+    assert agent.asked[0]['addressed'] is False
+    assert agent.asked[0]['conversation_type'] == 'channel_thread'
+
+
+def test_a_direct_message_is_a_direct_message_with_no_end(mock_fn, mock_event, mock_context, agent):
+    mock_fn.handler(direct_message(mock_event), mock_context)
+    assert agent.asked[0]['conversation_type'] == 'direct_message'
+    assert agent.asked[0]['addressed'] is False
+    assert agent.asked[0]['thread_ends_at'] is None
+
+
+def test_both_attempts_carry_the_same_message_id(mock_fn, mock_event, mock_context, agent):
+    agent.replies = [AgentFailed('status 500'), AgentReply('answer', REPLY, 'r-2')]
+    mock_fn.handler(mention(mock_event), mock_context)
+    assert len(agent.asked) == 2
+    assert agent.asked[0]['message_id'] == agent.asked[1]['message_id']
+
+
+def test_people_mentioned_are_named_and_striders_own_mention_in_context_is_its_name(
+    mock_fn, mock_event, mock_context, slack, agent, thread
+):
+    slack.names = {'U1': 'Uma One', 'U2': 'Ugo Two'}
+    thread.return_value = ThreadRead(
+        mentioned=True, answered_before=False,
+        earlier=[('<@U1>', f'<@{BOT}> can you help <@U2|ugo>?')],
+    )
+
+    mock_fn.handler(thread_reply(mock_event, text='ask <@W2> and <@U1>'), mock_context)
+
+    prompt = agent.asked[0]['prompt']
+    assert 'Uma One: STRIDEr can you help Ugo Two?' in prompt
+    assert prompt.endswith('ask Robin Example and Uma One')
+    assert '<@' not in prompt
+
+
+def test_names_are_looked_up_for_at_most_ten_people_mentioned(mock_fn, mock_event, mock_context, slack, agent):
+    mentions = ' '.join(f'<@U{n:03d}>' for n in range(14))
+
+    mock_fn.handler(mention(mock_event, text=f'<@{BOT}> {mentions}'), mock_context)
+
+    prompt = agent.asked[0]['prompt']
+    assert prompt.count('Robin Example') == 10
+    assert prompt.count('someone') == 4
+    assert len(slack.name_lookups) == 11  # the writer, and ten people mentioned
+
+
+def test_no_name_reaches_a_log(mock_fn, mock_event, mock_context, slack, agent, caplog, capsys):
+    slack.names = {'U0123ABCD': 'Zebedee Quartermain', 'U2': 'Wilhelmina Featherstone'}
+
+    mock_fn.handler(mention(mock_event, user='U0123ABCD', text=f'<@{BOT}> ask <@U2>'), mock_context)
+
+    assert agent.asked[0]['speaker_name'] == 'Zebedee Quartermain'
+    logged = everything_logged(caplog, capsys)
+    for word in ('Zebedee', 'Quartermain', 'Wilhelmina', 'Featherstone'):
+        assert word not in logged
+    assert last_record(caplog)['namesLookedUp'] == 2
+
+
+### No reply (spec 008: FR-029)
+def test_when_the_agent_gives_no_reply_nothing_is_posted_and_the_eyes_come_and_go(
+    mock_fn, mock_event, mock_context, slack, agent, caplog
+):
+    agent.replies = [AgentReply('no_reply', '', 'r-1')]
+
+    result = mock_fn.handler(thread_reply(mock_event), mock_context)
+
+    assert result == {'batchItemFailures': []}
+    assert slack.steps == ['member?', 'eyes on', 'eyes off']
+    assert slack.posts == [] and slack.uploads == []
+    assert outcome(caplog) == ('no_reply', None)
+    assert len(agent.asked) == 1  # not a failure, so not tried again
+
+
+### Documents (spec 008: FR-038, FR-039)
+MODEL = {'filename': 'threat-model-shop.md', 'title': 'Threat model: Shop',
+         'markdown': '# Threat model: Shop\n\nRemember the kingfisher.'}
+NOTES = {'filename': 'facilitator-notes-shop.md', 'title': "Facilitator's notes: Shop",
+         'markdown': "# Facilitator's notes: Shop"}
+
+
+def test_documents_are_uploaded_as_files_after_the_reply_in_the_same_thread(
+    mock_fn, mock_event, mock_context, slack, agent, caplog
+):
+    agent.replies = [AgentReply('answer', REPLY, 'r-1', [MODEL, NOTES])]
+    event = mention(mock_event)
+
+    mock_fn.handler(event, mock_context)
+
+    data = queued(event)
+    assert slack.steps == ['member?', 'eyes on', 'post', 'upload', 'upload', 'eyes off']
+    assert slack.uploads[0] == ('upload', CHANNEL, data['ts'], MODEL['filename'], MODEL['title'], MODEL['markdown'])
+    assert slack.uploads[1][3] == NOTES['filename']
+    assert outcome(caplog) == ('answered', None)
+    assert last_record(caplog)['documents'] == 2
+
+
+def test_in_a_direct_message_a_document_goes_outside_any_thread(mock_fn, mock_event, mock_context, slack, agent):
+    agent.replies = [AgentReply('answer', REPLY, 'r-1', [MODEL])]
+    mock_fn.handler(direct_message(mock_event), mock_context)
+    assert slack.uploads[0][1:3] == ('D0123ABCDEF', None)
+
+
+def test_when_a_document_cannot_be_posted_the_next_is_still_tried_and_the_person_is_told_once(
+    mock_fn, mock_event, mock_context, slack, agent, caplog
+):
+    agent.replies = [AgentReply('answer', REPLY, 'r-1', [MODEL, NOTES])]
+    slack.uploads_that_fail = {MODEL['filename']}
+
+    result = mock_fn.handler(mention(mock_event), mock_context)
+
+    assert result == {'batchItemFailures': []}
+    assert slack.steps == ['member?', 'eyes on', 'post', 'upload failed', 'upload', 'post', 'eyes off']
+    assert slack.posts == [REPLY, text.DOCUMENT_NOT_POSTED]
+    assert outcome(caplog) == ('failed', 'document_not_posted')
+    assert last_record(caplog)['documents'] == 1
+
+
+def test_no_document_reaches_a_log(mock_fn, mock_event, mock_context, agent, caplog, capsys):
+    agent.replies = [AgentReply('answer', REPLY, 'r-1', [MODEL])]
+    mock_fn.handler(mention(mock_event), mock_context)
+    logged = everything_logged(caplog, capsys)
+    assert 'kingfisher' not in logged and 'threat-model-shop' not in logged

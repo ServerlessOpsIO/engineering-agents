@@ -156,6 +156,7 @@ reply in parts) and H (a guest is not answered). Expected: unchanged.
 
 | Scenario | Date | Result | Notes |
 |---|---|---|---|
+| Baseline (T002) | 2026-11-21 | 440 tests pass | Before any change for this feature. |
 | A | | | |
 | B | | | |
 | C (run 1, 2, 3) | | | |

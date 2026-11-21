@@ -157,6 +157,11 @@ The command reports pass or fail for each of these:
   under `must_appear_in_notes` is in the notes (SC-004).
 - No reply took longer than 100 seconds (SC-010).
 
-It exits 0 only when all pass. What it cannot judge is in the checklist
+These are of two kinds. **Structural** checks are the model's parts and fields, which
+documents come with which reply, how long each reply took, and that nothing from the notes
+is in the model. **Behavioural** checks are what depends on the model's judgement and a
+program can still check: each turn's `expect`, the opening, and the two word lists. The
+command exits 0 only when every structural check passes; behavioural misses are reported
+and do not change the exit code (spec, "How acceptance is judged"). What it cannot judge is in the checklist
 (`docs/handbook/10-threat-model-sessions.md`), which a person reads the transcript
 against (FR-049).
